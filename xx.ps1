@@ -20,7 +20,7 @@
 #    pwsh -File xx.ps1                       # 交互菜单（↑↓ 选择）
 #    pwsh -File xx.ps1 DeepSeek              # 直接“设为默认”到 DeepSeek
 #    pwsh -File xx.ps1 DeepSeek -Session     # “本次启用”并启动 Claude
-#    pwsh -File xx.ps1 -List                 # 列出所有档案
+#    pwsh -File xx.ps1 -List                 # 列出所有配置
 # ============================================================
 
 [CmdletBinding()]
@@ -38,9 +38,9 @@ if (-not $StoreDir) { $StoreDir = Join-Path $env:USERPROFILE '.cc-mini' }
 $script:StoreDir     = $StoreDir
 $script:StorePath    = Join-Path $StoreDir 'providers.json'
 $script:DefaultScope = $DefaultScope
-$script:Version      = '0.2.0'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
+$script:Version      = '0.2.1'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
 
-# 受管钥匙：工具完全拥有这些键，启用时按目标档案 设置/清除，其它变量一律不动。
+# 受管钥匙：工具完全拥有这些键，启用时按目标配置 设置/清除，其它变量一律不动。
 $script:KnownKeys = @(
     'ANTHROPIC_BASE_URL',
     'ANTHROPIC_AUTH_TOKEN',
@@ -52,23 +52,48 @@ $script:KnownKeys = @(
 )
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
-# API 地址预置：优先读脚本同目录的 presets.json，缺失则用内置兜底。
+# 供应商目录：优先读脚本同目录的 presets.json，缺失则用内置兜底。
+# 每个供应商含：name、auth（认证字段）、urls（可多个 API 地址）、models（推荐三档映射）、effort（可选）。
 $BuiltinPresetsJson = @'
 [
-  { "name": "DeepSeek",  "url": "https://api.deepseek.com/anthropic" },
-  { "name": "智谱GLM",   "url": "https://open.bigmodel.cn/api/anthropic" },
-  { "name": "小米MiMo",  "url": "https://api.xiaomimimo.com/anthropic" },
-  { "name": "官方Anthropic(留空)", "url": "" }
+  {
+    "name": "DeepSeek",
+    "auth": "AUTH_TOKEN",
+    "effort": "max",
+    "urls": [ { "label": "Anthropic 兼容", "url": "https://api.deepseek.com/anthropic" } ],
+    "models": { "opus": "deepseek-v4-pro", "sonnet": "deepseek-v4-pro", "haiku": "deepseek-v4-flash" }
+  },
+  {
+    "name": "智谱GLM",
+    "auth": "AUTH_TOKEN",
+    "urls": [ { "label": "Anthropic 兼容", "url": "https://open.bigmodel.cn/api/anthropic" } ],
+    "models": { "opus": "GLM-4.7", "sonnet": "GLM-4.7", "haiku": "glm-4.5-air" }
+  },
+  {
+    "name": "小米MiMo",
+    "auth": "AUTH_TOKEN",
+    "urls": [
+      { "label": "按量付费API", "url": "https://api.xiaomimimo.com/anthropic" },
+      { "label": "TokenPlan", "url": "https://token-plan-cn.xiaomimimo.com/anthropic" }
+    ],
+    "models": { "opus": "mimo-v2.5-pro", "sonnet": "mimo-v2.5-pro", "haiku": "mimo-v2.5-pro" }
+  },
+  {
+    "name": "官方Anthropic",
+    "auth": "API_KEY",
+    "urls": [ { "label": "(留空，用登录态)", "url": "" } ],
+    "models": {}
+  }
 ]
 '@
 $presetsFile = Join-Path $PSScriptRoot 'presets.json'
-$script:BaseUrlPresets = @(
+$script:ProviderCatalog = @(
     if (Test-Path $presetsFile) {
         try { Get-Content -Raw -Path $presetsFile | ConvertFrom-Json } catch { $BuiltinPresetsJson | ConvertFrom-Json }
     } else { $BuiltinPresetsJson | ConvertFrom-Json }
 )
 
-# 默认档案（effort 按各家文档：官方留空、DeepSeek=max、GLM/MiMo 留空）
+# 默认配置（effort 按各家文档：官方留空、DeepSeek=max、GLM/MiMo 留空）
 $DefaultStoreJson = @'
 {
   "current": "官方",
@@ -110,7 +135,7 @@ $DefaultStoreJson = @'
 '@
 
 # ============================================================
-#  档案存取
+#  配置存取
 # ============================================================
 function Save-Store($store) {
     if (-not (Test-Path $script:StoreDir)) { New-Item -ItemType Directory -Path $script:StoreDir -Force | Out-Null }
@@ -120,7 +145,7 @@ function Get-Store {
     if (Test-Path $script:StorePath) { return Get-Content -Raw -Path $script:StorePath | ConvertFrom-Json }
     $store = $DefaultStoreJson | ConvertFrom-Json
     Save-Store $store
-    Write-Host "  已在 $($script:StorePath) 生成默认档案（含官方 + 三个第三方，密钥待填）。" -ForegroundColor DarkGray
+    Write-Host "  已在 $($script:StorePath) 生成默认配置（含官方 + 三个第三方，密钥待填）。" -ForegroundColor DarkGray
     return $store
 }
 function Get-ManagedKeys { return $script:KnownKeys }
@@ -164,7 +189,7 @@ function Show-State($prov) {
 function Set-Default($store, $prov) {
     $envMap = Get-ProviderEnvMap $prov
     $noKey = [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_AUTH_TOKEN']) -and [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_API_KEY'])
-    if ($prov.name -ne '官方' -and $noKey) { Write-Host "  ⚠ 档案 [$($prov.name)] 还没填密钥。" -ForegroundColor Yellow }
+    if ($prov.name -ne '官方' -and $noKey) { Write-Host "  ⚠ 配置 [$($prov.name)] 还没填密钥。" -ForegroundColor Yellow }
 
     foreach ($k in (Get-ManagedKeys)) {
         $val = if ($envMap.ContainsKey($k) -and -not [string]::IsNullOrWhiteSpace($envMap[$k])) { $envMap[$k] } else { $null }
@@ -184,7 +209,7 @@ function Set-Default($store, $prov) {
 function Session-Launch($store, $prov) {
     $envMap = Get-ProviderEnvMap $prov
     $noKey = [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_AUTH_TOKEN']) -and [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_API_KEY'])
-    if ($prov.name -ne '官方' -and $noKey) { Write-Host "  ⚠ 档案 [$($prov.name)] 还没填密钥。" -ForegroundColor Yellow }
+    if ($prov.name -ne '官方' -and $noKey) { Write-Host "  ⚠ 配置 [$($prov.name)] 还没填密钥。" -ForegroundColor Yellow }
 
     foreach ($k in (Get-ManagedKeys)) {
         if ($envMap.ContainsKey($k) -and -not [string]::IsNullOrWhiteSpace($envMap[$k])) { Set-Item -Path "Env:$k" -Value $envMap[$k] }
@@ -229,8 +254,11 @@ function Write-MenuLine([string]$text, $color) {
 
 # ↑↓ 选择菜单。空串 '' = 不可选分隔空行（导航跳过）。
 # 重绘时光标回到菜单顶端原地覆盖、隐藏光标 → 不闪烁。
+# 可选就地排序：传入 $OnMove（scriptblock，签名 {param($from,$to) …}，须完成数据交换并返回新的
+# $Items 标签数组）与 $MovableCount（顶部前 N 项可排序）。Shift+↑↓ / PgUp·PgDn 移动选中项。
 function Select-Menu {
-    param([string]$Title, [string[]]$Items, [string]$Hint, [int]$Start = 0, [hashtable]$Colors)
+    param([string]$Title, [string[]]$Items, [string]$Hint, [int]$Start = 0, [hashtable]$Colors,
+          [scriptblock]$OnMove, [int]$MovableCount = 0)
     $nextSel = {
         param($i, $d)
         do { $i = ($i + $d + $Items.Count) % $Items.Count } while ($Items[$i] -eq '')
@@ -269,6 +297,18 @@ function Select-Menu {
             Write-MenuLine '' 'Gray'
             if ($Hint) { Write-MenuLine "  $Hint" 'DarkGray' }
             $key = [Console]::ReadKey($true)
+            # 就地排序：Shift+↑↓ 或 PgUp/PgDn 把选中项在“可排序区”（顶部前 MovableCount 项）内上/下移。
+            if ($OnMove) {
+                $shift = ($key.Modifiers -band [ConsoleModifiers]::Shift) -ne 0
+                $up    = ($key.Key -eq 'PageUp')   -or ($shift -and $key.Key -eq 'UpArrow')
+                $down  = ($key.Key -eq 'PageDown') -or ($shift -and $key.Key -eq 'DownArrow')
+                if ($up -and $idx -gt 0 -and $idx -lt $MovableCount) {
+                    $Items = & $OnMove $idx ($idx - 1); $idx--; continue
+                }
+                if ($down -and $idx -lt ($MovableCount - 1)) {
+                    $Items = & $OnMove $idx ($idx + 1); $idx++; continue
+                }
+            }
             switch ($key.Key) {
                 'UpArrow'   { $idx = & $nextSel $idx -1 }
                 'DownArrow' { $idx = & $nextSel $idx 1 }
@@ -291,19 +331,22 @@ function Select-Menu {
 function Pick-BaseUrl($current, $store) {
     $entries = @()
     $seen = New-Object System.Collections.Generic.HashSet[string]
-    # 1) 预置（含赞助商，带标记）
-    foreach ($p in $script:BaseUrlPresets) {
-        $u = [string]$p.url
-        $entries += @{ label = ('{0,-18} {1}' -f $p.name, $(if ($u) { $u } else { '(空)' })); url = $u }
-        [void]$seen.Add($u)
+    # 1) 供应商目录里的所有 API 地址（一个供应商可有多个，带标签）
+    foreach ($p in $script:ProviderCatalog) {
+        foreach ($u in @($p.urls)) {
+            $url = [string]$u.url
+            $tag = if (@($p.urls).Count -gt 1) { "$($p.name)/$($u.label)" } else { [string]$p.name }
+            $entries += @{ label = ('{0,-20} {1}' -f $tag, $(if ($url) { $url } else { '(空)' })); url = $url }
+            [void]$seen.Add($url)
+        }
     }
-    # 2) 自动收录已有档案里用过的地址
+    # 2) 自动收录已有配置里用过的地址
     if ($store) {
         foreach ($prov in $store.providers) {
             $u = (Get-ProviderEnvMap $prov)['ANTHROPIC_BASE_URL']
             if (-not [string]::IsNullOrWhiteSpace($u) -and -not $seen.Contains($u)) {
                 [void]$seen.Add($u)
-                $entries += @{ label = ('{0,-18} {1}' -f "(已有:$($prov.name))", $u); url = $u }
+                $entries += @{ label = ('{0,-20} {1}' -f "(已有:$($prov.name))", $u); url = $u }
             }
         }
     }
@@ -315,6 +358,38 @@ function Pick-BaseUrl($current, $store) {
     if ($v -eq '')  { return $current }
     if ($v -eq '-') { return '' }
     return $v.Trim()
+}
+
+# 选供应商：从供应商目录里选一个（或“自定义”手填名字）。
+# 返回供应商对象 / @{custom=$true} / $null（不改）。
+function Pick-Provider($current) {
+    $names = @($script:ProviderCatalog.name)
+    $items = @($names) + '自定义（手动填名字）' + '不修改'
+    $sel = Select-Menu -Title "供应商（当前：$(if($current){$current}else{'(未选)'})）" -Items $items -Hint '↑↓ 选择 · Enter 确认 · q 不改'
+    if ($sel -lt 0 -or $sel -eq $items.Count - 1) { return $null }
+    if ($sel -eq $names.Count) { return [pscustomobject]@{ custom = $true } }
+    return $script:ProviderCatalog[$sel]
+}
+
+# 供应商有多个 API 地址时让用户选一个；只有一个则直接用，无地址则保持原值。
+function Pick-ProviderUrl($pp, $current) {
+    $urls = @($pp.urls)
+    if ($urls.Count -eq 0) { return $current }
+    if ($urls.Count -eq 1) { return [string]$urls[0].url }
+    $labels = @($urls | ForEach-Object { '{0,-12} {1}' -f $_.label, $(if ($_.url) { $_.url } else { '(空)' }) })
+    $items = @($labels) + '不修改'
+    $sel = Select-Menu -Title "$($pp.name) 有多个 API 地址，选一个" -Items $items -Hint '↑↓ 选择 · Enter 确认 · q 不改'
+    if ($sel -lt 0 -or $sel -eq $items.Count - 1) { return $current }
+    return [string]$urls[$sel].url
+}
+
+# 名称去重：同名已被【其它】配置占用时自动追加 “ 2/3/…”。$exclude 为正在编辑的本条（排除自身）。
+function Resolve-UniqueName($store, $name, $exclude) {
+    $existing = @($store.providers | Where-Object { -not [object]::ReferenceEquals($_, $exclude) } | ForEach-Object { [string]$_.name })
+    if ($existing -notcontains $name) { return $name }
+    $i = 2
+    while ($existing -contains "$name $i") { $i++ }
+    return "$name $i"
 }
 
 # 可取消的文本输入：Esc=取消(不改)，回车空=不改，输入 - 回车=清空；支持退格与粘贴。
@@ -389,9 +464,10 @@ function Edit-Form($prov, $store) {
         effort = $map['CLAUDE_CODE_EFFORT_LEVEL']
     }
     function _v($x) { if ([string]::IsNullOrWhiteSpace($x)) { '(空)' } else { $x } }
+    $sel = 0   # 记住上次选中项：改完一项 / 保存取消返回后，光标停在原处（不再跳回第一项）
     while ($true) {
         $rows = @(
-            ('名称          : {0}' -f (_v $W.name)),
+            ('供应商        : {0}' -f (_v $W.name)),
             ('备注          : {0}' -f (_v $W.note)),
             ('API 地址      : {0}' -f (_v $W.base)),
             ('认证字段      : {0}' -f $W.auth),
@@ -402,9 +478,26 @@ function Edit-Form($prov, $store) {
             ('effort 思考档 : {0}' -f (_v $W.effort))
         )
         $items = @($rows) + '' + '保存并返回' + '放弃修改'   # '' = 分隔空行（与上方拉开距离）
-        $sel = Select-Menu -Title '编辑档案  （↑↓ 选要改的项，Enter 进入；↓到底可选保存/放弃）' -Items $items -Hint '输入项内：Esc 取消该项 · 回车不改 · 输入 - 清空'
+        $sel = Select-Menu -Title '编辑配置  （↑↓ 选要改的项，Enter 进入；↓到底可选保存/放弃）' -Items $items -Start $sel -Hint '供应商：选后自动填地址/模型 · 备注随便写 · 项内 Esc 取消 · 回车不改 · - 清空'
         switch ($sel) {
-            0 { $v = Read-Host '  名称（回车=不改）'; if (-not [string]::IsNullOrWhiteSpace($v)) { $W.name = $v.Trim() } }
+            0 {
+                $pp = Pick-Provider $W.name
+                if ($pp -and $pp.custom) {
+                    $v = Read-Host '  自定义供应商名称（回车=不改）'
+                    if (-not [string]::IsNullOrWhiteSpace($v)) { $W.name = $v.Trim() }
+                }
+                elseif ($pp) {
+                    $W.name = [string]$pp.name
+                    if ($pp.auth) { $W.auth = [string]$pp.auth }
+                    $W.base = Pick-ProviderUrl $pp $W.base
+                    if ($pp.models) {
+                        if ($pp.models.opus)   { $W.opus   = [string]$pp.models.opus }
+                        if ($pp.models.sonnet) { $W.sonnet = [string]$pp.models.sonnet }
+                        if ($pp.models.haiku)  { $W.haiku  = [string]$pp.models.haiku }
+                    }
+                    if (($pp.PSObject.Properties.Name -contains 'effort') -and $pp.effort) { $W.effort = [string]$pp.effort }
+                }
+            }
             1 { $v = Read-Host '  备注（回车=不改，- =清空）'; if ($v -eq '-') { $W.note = '' } elseif (-not [string]::IsNullOrWhiteSpace($v)) { $W.note = $v.Trim() } }
             2 { $W.base   = Pick-BaseUrl $W.base $store }
             3 { $W.auth   = Pick-Auth $W.auth }
@@ -414,13 +507,16 @@ function Edit-Form($prov, $store) {
             7 { $r = Read-Value -Label 'haiku 映射模型（含后台任务）' -Current $W.haiku; if ($r.Changed) { $W.haiku  = $r.Value } }
             8 { $W.effort = Pick-Effort $W.effort }
             10 {
+                if ([string]::IsNullOrWhiteSpace($W.name)) {
+                    Write-Host "  还没选供应商（或自定义名称），未保存。" -ForegroundColor Yellow; Start-Sleep 1; continue
+                }
                 $fields = @{ 'ANTHROPIC_BASE_URL' = $W.base
                              'ANTHROPIC_DEFAULT_OPUS_MODEL' = $W.opus
                              'ANTHROPIC_DEFAULT_SONNET_MODEL' = $W.sonnet
                              'ANTHROPIC_DEFAULT_HAIKU_MODEL' = $W.haiku
                              'CLAUDE_CODE_EFFORT_LEVEL' = $W.effort }
                 if ($W.auth -eq 'API_KEY') { $fields['ANTHROPIC_API_KEY'] = $W.token } else { $fields['ANTHROPIC_AUTH_TOKEN'] = $W.token }
-                $prov.name = $W.name
+                $prov.name = Resolve-UniqueName $store $W.name $prov   # 同供应商可多条，自动 “名 2/3…” 去重
                 $prov.env  = Build-ProviderEnv $fields
                 Set-Note $prov ($W.note)
                 return $true
@@ -431,18 +527,15 @@ function Edit-Form($prov, $store) {
 }
 
 function New-Provider($store) {
-    $prov = [PSCustomObject]@{ name = '新档案'; note = ''; env = [PSCustomObject]@{} }
+    $prov = [PSCustomObject]@{ name = ''; note = ''; env = [PSCustomObject]@{} }
     if (Edit-Form $prov $store) {
-        if ($store.providers | Where-Object { $_.name -eq $prov.name }) {
-            Write-Host "  已存在同名档案，未保存。" -ForegroundColor Yellow; Start-Sleep 1; return
-        }
         $store.providers += $prov
         Save-Store $store
     }
 }
 
 # ============================================================
-#  动作菜单（选中某档案后）
+#  动作菜单（选中某配置后）
 # ============================================================
 function Action-Menu($store, $prov) {
     $opts = @(
@@ -452,11 +545,18 @@ function Action-Menu($store, $prov) {
         '删除',
         '返回'
     )
-    $a = Select-Menu -Title "档案：$($prov.name)    [$(Show-State $prov)]" -Items $opts -Hint '↑↓ 选择 · Enter 确认 · q 返回'
+    $note = $(if (Get-Note $prov) { "  — $(Get-Note $prov)" } else { '' })
+    $a = Select-Menu -Title "配置：$($prov.name)$note    [$(Show-State $prov)]" -Items $opts -Hint '↑↓ 选择 · Enter 确认 · q 返回'
     switch ($a) {
         0 { Session-Launch $store $prov }
         1 { Set-Default $store $prov; Read-Host '  回车继续' | Out-Null }
-        2 { if (Edit-Form $prov $store) { Save-Store $store } }
+        2 {
+            $old = $prov.name
+            if (Edit-Form $prov $store) {
+                if ($store.current -eq $old) { $store.current = $prov.name }   # 改了供应商/名称时同步默认指向
+                Save-Store $store
+            }
+        }
         3 {
             if ($prov.name -eq '官方') { Write-Host '  建议保留『官方』。' -ForegroundColor Yellow; Start-Sleep 1 }
             $ans = Read-Host "  确认删除 [$($prov.name)]? (y/N)"
@@ -470,23 +570,36 @@ function Action-Menu($store, $prov) {
 }
 
 # ============================================================
-#  主菜单
+#  主菜单（配置列表可直接用 Shift+↑↓ / PgUp·PgDn 就地排序）
 # ============================================================
 function Main-Menu($store) {
-    while ($true) {
+    # 生成主菜单全部条目（配置列表 + 分隔 + 新增 + 退出）；排序后回调用它重建。
+    $buildItems = {
         $labels = @()
         foreach ($p in $store.providers) {
             $cur  = if ($p.name -eq $store.current) { '（默认）' } else { '' }
             $note = $(if (Get-Note $p) { "  — $(Get-Note $p)" } else { '' })
             $labels += ('{0}{1}[{2}]{3}' -f (Pad-Display $p.name 16), (Pad-Display $cur 8), (Show-State $p), $note)
         }
+        @($labels) + '' + '＋ 新增配置' + '' + '退出'
+    }
+    # 就地交换两个配置的顺序并持久化，返回重建后的条目。
+    $onMove = {
+        param($from, $to)
+        $t = $store.providers[$from]; $store.providers[$from] = $store.providers[$to]; $store.providers[$to] = $t
+        Save-Store $store
+        & $buildItems
+    }
+    while ($true) {
         $n = $store.providers.Count
-        $items  = @($labels) + '' + '＋ 新增档案' + '' + '退出'
-        $colors = @{ ($n + 1) = 'Yellow' }   # 「＋ 新增档案」用亮黄色突出
-        $sel = Select-Menu -Title "ccx v$($script:Version) · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）" -Items $items -Colors $colors -Hint '↑↓ 选择 · Enter 进入 · q 退出'
-        if ($sel -lt 0 -or $sel -eq $n + 3) { break }       # 退出 / Esc
+        $items  = & $buildItems
+        $colors = @{ ($n + 1) = 'Yellow' }   # 「＋ 新增配置」用亮黄色突出
+        $sel = Select-Menu -Title "ccx v$($script:Version) · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）" `
+            -Items $items -Colors $colors -OnMove $onMove -MovableCount $n `
+            -Hint '↑↓ 选择 · Enter 进入 · Shift+↑↓（或 PgUp/PgDn）排序 · q 退出'
+        if ($sel -lt 0 -or $sel -eq $n + 3) { break }        # 退出 / Esc
         elseif ($sel -eq $n + 1) { New-Provider $store }     # 新增
-        else { Action-Menu $store $store.providers[$sel] }   # 选中某档案
+        else { Action-Menu $store $store.providers[$sel] }   # 选中某配置
     }
 }
 
@@ -497,7 +610,7 @@ $store = Get-Store
 
 if ($List) {
     Write-Host ''
-    Write-Host "  默认档案：$($store.current)" -ForegroundColor White
+    Write-Host "  默认配置：$($store.current)" -ForegroundColor White
     foreach ($p in $store.providers) {
         $mark = if ($p.name -eq $store.current) { '▶' } else { ' ' }
         $note = $(if (Get-Note $p) { "  — $(Get-Note $p)" } else { '' })
@@ -510,7 +623,7 @@ if ($List) {
 if ($Switch) {
     $target = $store.providers | Where-Object { $_.name -eq $Switch } | Select-Object -First 1
     if (-not $target) {
-        Write-Host "  找不到档案：$Switch" -ForegroundColor Red
+        Write-Host "  找不到配置：$Switch" -ForegroundColor Red
         Write-Host "  现有：$($store.providers.name -join ', ')" -ForegroundColor DarkGray
         exit 1
     }

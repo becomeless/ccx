@@ -123,7 +123,8 @@ a user-level default.
 ## Menu
 
 Run `xx` for the interactive menu (`↑↓` move, `Enter` select, `q`/`Esc` quit; number keys
-also work):
+also work). With a profile highlighted, press **`Shift+↑↓` (or `PgUp`/`PgDn`) to move it
+up/down and reorder** — saved instantly:
 
 - **Select a profile → Enter** opens the action menu:
   - **Use this session** — sets env for this terminal and launches Claude now.
@@ -134,9 +135,16 @@ also work):
   - **Back**.
 - **+ New profile** / **Quit**.
 
-**Edit form:** all fields shown on one screen; type a number to edit that field, `s` to
-save, `c` to cancel. Inside a field, **Enter = keep unchanged**; type `-` to clear. The
-"API URL" field pops up a pick list (presets + already-used URLs + manual entry).
+**Edit form:** `↑↓` to pick a field, `Enter` to edit it; scroll past the fields to choose
+"Save & return" / "Discard". Inside a field, **Enter = keep unchanged**, `-` = clear,
+`Esc` = cancel that field. The first field is **"Provider"**: pick a provider (from the
+catalog) and it **auto-fills** the API URL, the three model mappings, and the auth field
+(if the provider has multiple API URLs — e.g. Xiaomi MiMo's pay-as-you-go API vs TokenPlan —
+you choose one). "Note" is free text. "API URL" can also be opened on its own to override
+(catalog + already-used URLs + manual entry).
+
+> "Provider" is a picker — press `Esc` to cancel in one key. "Note" uses plain input
+> (Enter = keep, `-` = clear; CJK input-method friendly).
 
 ## CLI usage
 
@@ -151,8 +159,8 @@ xx -List                 # list all profiles and their status
 
 | Field | Env var | Notes |
 |---|---|---|
-| Name | — | Unique id; distinguishes multiple accounts |
-| Note | — | Display-only label |
+| Provider | — | Picked from the catalog; auto-fills API URL / models / auth field. Also the profile's unique id — collisions get a ` 2`/` 3`… suffix (see "Multiple accounts") |
+| Note | — | Free text; tells apart multiple profiles of the same provider |
 | API URL | `ANTHROPIC_BASE_URL` | Third-party endpoint; empty = official login |
 | Auth field | — | Whether the key goes into `AUTH_TOKEN` or `API_KEY` |
 | API key | `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` | Value for the chosen auth field |
@@ -180,7 +188,7 @@ third party honors it depends on its implementation.
 | 官方 (official) | (empty = login) | — | — | empty / `auto` |
 | DeepSeek | `https://api.deepseek.com/anthropic` | `deepseek-v4-pro` | `deepseek-v4-flash` | `max` (per their docs) |
 | Zhipu GLM | `https://open.bigmodel.cn/api/anthropic` | `GLM-4.7` | `glm-4.5-air` | empty |
-| Xiaomi MiMo | `https://api.xiaomimimo.com/anthropic` | `mimo-v2.5-pro` | `mimo-v2.5-pro` | empty |
+| Xiaomi MiMo | `https://api.xiaomimimo.com/anthropic` (pay-as-you-go)<br>`https://token-plan-cn.xiaomimimo.com/anthropic` (TokenPlan) | `mimo-v2.5-pro` | `mimo-v2.5-pro` | empty |
 
 > Model names change as providers update; follow each provider's official docs.
 
@@ -196,20 +204,36 @@ ccx clears the other on switch to avoid conflicts.
 
 ## Multiple accounts
 
-For multiple accounts of the same vendor (e.g. personal vs work DeepSeek keys): use
-**distinct names** (the name is the unique id), e.g. `DeepSeek-personal`, `DeepSeek-work`,
-and use the **Note** field for extra clarity.
+For multiple accounts of the same vendor (e.g. personal vs work DeepSeek keys): **just
+create multiple profiles**. Picking the same provider a second time auto-names it
+`DeepSeek 2`; use the **Note** field to mark "personal / work". The list shows them as
+"Provider — Note", easy to tell apart.
 
-## Maintaining preset URLs
+## Maintaining the provider catalog
 
-The "API URL" pick list comes from two sources:
+`presets.json` (ships with the tool) is the **provider catalog** — the "Provider" choices
+when creating/editing a profile come from here. Add a provider, no code change. Each entry:
 
-1. **`presets.json`** (ships with the tool): add an entry, no code change:
-   ```json
-   [ { "name": "DeepSeek", "url": "https://api.deepseek.com/anthropic" } ]
-   ```
-2. **Auto-collected**: URLs already used in your `providers.json` show up automatically
-   (tagged `(已有:name)`).
+```json
+[
+  {
+    "name": "DeepSeek",
+    "auth": "AUTH_TOKEN",
+    "effort": "max",
+    "urls": [ { "label": "Anthropic-compatible", "url": "https://api.deepseek.com/anthropic" } ],
+    "models": { "opus": "deepseek-v4-pro", "sonnet": "deepseek-v4-pro", "haiku": "deepseek-v4-flash" }
+  }
+]
+```
+
+- `urls` may contain **multiple** entries (e.g. a vendor splitting its API and TokenPlan
+  across different addresses) — you pick one when choosing that provider.
+- `models` are the **recommended** opus/sonnet/haiku mappings, auto-filled on pick (still
+  editable afterwards).
+- `auth` (`AUTH_TOKEN`/`API_KEY`) and `effort` are optional and carried over on pick.
+
+The "API URL" pick list also **auto-collects** URLs already used in your `providers.json`
+(tagged `(已有:name)`).
 
 ## First run: skipping login / onboarding
 
@@ -231,7 +255,7 @@ whole file.** If it doesn't exist, create it as `{ "hasCompletedOnboarding": tru
 ## Files & data
 
 - Profiles (with keys, stored **in plaintext** locally — don't share): `~/.cc-mini/providers.json`
-- Preset URLs: `presets.json` (shipped)
+- Provider catalog: `presets.json` (shipped)
 - "Set as default" writes **Windows user environment variables**, not a file; switching to
   "官方" clears all managed variables.
 - **No Claude config file is ever modified.**

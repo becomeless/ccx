@@ -12,7 +12,7 @@
 RootModule = 'ccx.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.2.0'
+ModuleVersion = '0.2.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -107,7 +107,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'v0.2.0：编辑界面改为方向键导航 + 可 Esc 取消的输入；按显示宽度对齐中文列；菜单加分隔空行与高亮项；重绘去闪烁（光标原地覆盖）。'
+        ReleaseNotes = 'v0.2.1：预设升级为「供应商目录」（多 API 地址 + 推荐模型），新增/编辑时选供应商自动填充；同供应商可建多份配置（名称自动去重，靠备注区分）；主菜单 Shift+↑↓ 就地排序；编辑后光标停在原处；术语「档案」统一改为「配置」；补充小米 MiMo TokenPlan 地址。'
 
         # Prerelease string of this module
         # Prerelease = ''

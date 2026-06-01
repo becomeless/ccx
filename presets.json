@@ -1,6 +1,36 @@
 [
-  { "name": "DeepSeek",  "url": "https://api.deepseek.com/anthropic" },
-  { "name": "智谱GLM",   "url": "https://open.bigmodel.cn/api/anthropic" },
-  { "name": "小米MiMo",  "url": "https://api.xiaomimimo.com/anthropic" },
-  { "name": "官方Anthropic(留空)", "url": "" }
+  {
+    "name": "DeepSeek",
+    "auth": "AUTH_TOKEN",
+    "effort": "max",
+    "urls": [
+      { "label": "Anthropic 兼容", "url": "https://api.deepseek.com/anthropic" }
+    ],
+    "models": { "opus": "deepseek-v4-pro", "sonnet": "deepseek-v4-pro", "haiku": "deepseek-v4-flash" }
+  },
+  {
+    "name": "智谱GLM",
+    "auth": "AUTH_TOKEN",
+    "urls": [
+      { "label": "Anthropic 兼容", "url": "https://open.bigmodel.cn/api/anthropic" }
+    ],
+    "models": { "opus": "GLM-4.7", "sonnet": "GLM-4.7", "haiku": "glm-4.5-air" }
+  },
+  {
+    "name": "小米MiMo",
+    "auth": "AUTH_TOKEN",
+    "urls": [
+      { "label": "按量付费API", "url": "https://api.xiaomimimo.com/anthropic" },
+      { "label": "TokenPlan", "url": "https://token-plan-cn.xiaomimimo.com/anthropic" }
+    ],
+    "models": { "opus": "mimo-v2.5-pro", "sonnet": "mimo-v2.5-pro", "haiku": "mimo-v2.5-pro" }
+  },
+  {
+    "name": "官方Anthropic",
+    "auth": "API_KEY",
+    "urls": [
+      { "label": "(留空，用登录态)", "url": "" }
+    ],
+    "models": {}
+  }
 ]
