@@ -38,7 +38,7 @@ if (-not $StoreDir) { $StoreDir = Join-Path $env:USERPROFILE '.cc-mini' }
 $script:StoreDir     = $StoreDir
 $script:StorePath    = Join-Path $StoreDir 'providers.json'
 $script:DefaultScope = $DefaultScope
-$script:Version      = '0.2.1'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
+$script:Version      = '0.2.2'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
 
 # 受管钥匙：工具完全拥有这些键，启用时按目标配置 设置/清除，其它变量一律不动。
 $script:KnownKeys = @(
@@ -266,8 +266,19 @@ function Session-Launch($store, $prov) {
     Write-Host "  ▶ 本次启用：$($prov.name)（仅当前终端，不影响其它终端）" -ForegroundColor Green
     Write-Host "    正在启动 Claude…（退出 Claude 后回到命令行）" -ForegroundColor DarkGray
     Write-Host ""
-    if (Get-Command claude -ErrorAction SilentlyContinue) { claude }
-    else { Write-Host "  未找到 claude 命令，请确认它在 PATH 中。" -ForegroundColor Red }
+    $cmd = Get-Command claude -ErrorAction SilentlyContinue
+    if (-not $cmd) { Write-Host "  未找到 claude 命令，请确认它在 PATH 中。" -ForegroundColor Red; return }
+    # 关键：本脚本跑在 `pwsh -File` 子进程里，PowerShell 在脚本宿主模式下直接调用原生命令
+    # （claude）会把子进程 stdin 接到自己的流（一个管道句柄）上，而非真正的控制台。claude 用
+    # isTTY(stdin) 判断交互模式，拿到管道就误判为 -p/--print 非交互，报「Input must be provided…」。
+    # 改用 Start-Process -NoNewWindow：走 .NET Process，绕开这层包装，让 claude 继承本进程真实的
+    # 控制台句柄，TTY 恢复。.exe/.cmd/.bat 这样启动；其余（如 npm 的 .ps1 包装）回退到直接调用。
+    $src = [string]$cmd.Source
+    if ($cmd.CommandType -eq 'Application' -and $src -match '\.(exe|cmd|bat)$') {
+        Start-Process -FilePath $src -NoNewWindow -Wait
+    } else {
+        claude
+    }
 }
 
 # ============================================================
@@ -596,7 +607,7 @@ function Action-Menu($store, $prov) {
     $note = $(if (Get-Note $prov) { "  — $(Get-Note $prov)" } else { '' })
     $a = Select-Menu -Title "配置：$($prov.name)$note    [$(Show-State $prov)]" -Items $opts -Hint '↑↓ 选择 · Enter 确认 · q 返回'
     switch ($a) {
-        0 { Session-Launch $store $prov }
+        0 { Session-Launch $store $prov; $null }  # 本次启用不产生 toast；显式 $null 避免输出被外层 $flash 捕获（否则会把 claude 的 stdout 拖进捕获管道，使其误判为 --print 非交互）
         1 { return (Set-Default $store $prov) }   # 不再「回车继续」，把结果作为 toast 返回主菜单
         2 {
             $old = $prov.name
