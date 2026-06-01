@@ -225,7 +225,8 @@ function Set-UserEnv-Fast([string[]]$keys, [hashtable]$vals) {
     Invoke-EnvBroadcast
 }
 
-# 设为默认：写用户环境变量（新终端裸 claude 生效；不影响运行中会话）
+# 设为默认：写用户环境变量（新终端裸 claude 生效；不影响运行中会话）。
+# 只用 Write-Host 报进度/警告，最终把结果作为字符串“返回”——菜单当 toast 用、命令行直接打印。
 function Set-Default($store, $prov) {
     $envMap = Get-ProviderEnvMap $prov
     $noKey = [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_AUTH_TOKEN']) -and [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_API_KEY'])
@@ -248,10 +249,7 @@ function Set-Default($store, $prov) {
     $store.current = $prov.name
     Save-Store $store
 
-    Write-Host "  ✓ 已设为默认：$($prov.name)" -ForegroundColor Green
-    Write-Host "    新开的终端裸敲  claude  就会用它；正在运行的会话不受影响。" -ForegroundColor White
-    Write-Host "    （当前这个终端是旧环境，需【新开终端】才生效。）" -ForegroundColor DarkGray
-    Write-Host ""
+    return "✓ 已设为默认：$($prov.name)  ·  新开终端裸敲 claude 生效（不影响运行中会话）"
 }
 
 # 本次启用：仅当前进程设环境变量并启动 Claude（多终端隔离，阅后即焚）
@@ -307,7 +305,7 @@ function Write-MenuLine([string]$text, $color) {
 # $Items 标签数组）与 $MovableCount（顶部前 N 项可排序）。Shift+↑↓ / PgUp·PgDn 移动选中项。
 function Select-Menu {
     param([string]$Title, [string[]]$Items, [string]$Hint, [int]$Start = 0, [hashtable]$Colors,
-          [scriptblock]$OnMove, [int]$MovableCount = 0)
+          [scriptblock]$OnMove, [int]$MovableCount = 0, [string]$Status)
     $nextSel = {
         param($i, $d)
         do { $i = ($i + $d + $Items.Count) % $Items.Count } while ($Items[$i] -eq '')
@@ -337,6 +335,7 @@ function Select-Menu {
             [Console]::SetCursorPosition(0, $top)
             Write-MenuLine '' 'Gray'
             if ($Title) { Write-MenuLine "  $Title" 'Cyan'; Write-MenuLine '' 'Gray' }
+            if ($Status) { Write-MenuLine "  $Status" 'Green'; Write-MenuLine '' 'Gray' }
             for ($i = 0; $i -lt $Items.Count; $i++) {
                 if ($Items[$i] -eq '') { Write-MenuLine '' 'Gray'; continue }
                 if ($i -eq $idx)       { Write-MenuLine ("   ▶ {0}" -f $Items[$i]) 'Green'; continue }
@@ -598,7 +597,7 @@ function Action-Menu($store, $prov) {
     $a = Select-Menu -Title "配置：$($prov.name)$note    [$(Show-State $prov)]" -Items $opts -Hint '↑↓ 选择 · Enter 确认 · q 返回'
     switch ($a) {
         0 { Session-Launch $store $prov }
-        1 { Set-Default $store $prov; Read-Host '  回车继续' | Out-Null }
+        1 { return (Set-Default $store $prov) }   # 不再「回车继续」，把结果作为 toast 返回主菜单
         2 {
             $old = $prov.name
             if (Edit-Form $prov $store) {
@@ -639,16 +638,18 @@ function Main-Menu($store) {
         Save-Store $store
         & $buildItems
     }
+    $flash = $null   # 一次性提示条（如“已设为默认”）：显示一轮后自动清除
     while ($true) {
         $n = $store.providers.Count
         $items  = & $buildItems
         $colors = @{ ($n + 1) = 'Yellow' }   # 「＋ 新增配置」用亮黄色突出
         $sel = Select-Menu -Title "ccx v$($script:Version) · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）" `
-            -Items $items -Colors $colors -OnMove $onMove -MovableCount $n `
+            -Items $items -Colors $colors -OnMove $onMove -MovableCount $n -Status $flash `
             -Hint '↑↓ 选择 · Enter 进入 · Shift+↑↓（或 PgUp/PgDn）排序 · q 退出'
+        $flash = $null
         if ($sel -lt 0 -or $sel -eq $n + 3) { break }        # 退出 / Esc
         elseif ($sel -eq $n + 1) { New-Provider $store }     # 新增
-        else { Action-Menu $store $store.providers[$sel] }   # 选中某配置
+        else { $flash = Action-Menu $store $store.providers[$sel] }   # 选中某配置（可能回传 toast）
     }
 }
 
@@ -676,7 +677,8 @@ if ($Switch) {
         Write-Host "  现有：$($store.providers.name -join ', ')" -ForegroundColor DarkGray
         exit 1
     }
-    if ($Session) { Session-Launch $store $target } else { Set-Default $store $target }
+    if ($Session) { Session-Launch $store $target }
+    else { $msg = Set-Default $store $target; Write-Host "  $msg" -ForegroundColor Green; Write-Host "" }
     return
 }
 
