@@ -29,5 +29,12 @@ foreach ($f in 'ccx.psd1','ccx.psm1','xx.ps1','presets.json','LICENSE','README.m
 Test-ModuleManifest (Join-Path $mod 'ccx.psd1') | Out-Null
 Write-Host "清单校验通过，开始发布…" -ForegroundColor Cyan
 
-Publish-Module -Path $mod -NuGetApiKey $ApiKey -Repository PSGallery -Verbose
-Write-Host "✓ 已发布。几分钟后可用 Install-Module ccx 安装。" -ForegroundColor Green
+# 用新一代 PSResourceGet 发布：它内置 NuGet 客户端，不解析 NuGet.exe 文字输出，
+# 因此能避开 PowerShellGet 2.x 在中文/本地化环境下 “Cannot index into a null array” 的老 bug。
+if (Get-Command Publish-PSResource -ErrorAction SilentlyContinue) {
+    Publish-PSResource -Path $mod -Repository PSGallery -ApiKey $ApiKey -Verbose
+} else {
+    # 兜底：老命令（英文环境下才稳）
+    Publish-Module -Path $mod -NuGetApiKey $ApiKey -Repository PSGallery -Verbose
+}
+Write-Host "✓ 已发布。几分钟后可：Install-Module ccx  或  Install-PSResource ccx（命令仍是 xx）。" -ForegroundColor Green
