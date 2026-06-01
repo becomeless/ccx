@@ -38,6 +38,7 @@ if (-not $StoreDir) { $StoreDir = Join-Path $env:USERPROFILE '.cc-mini' }
 $script:StoreDir     = $StoreDir
 $script:StorePath    = Join-Path $StoreDir 'providers.json'
 $script:DefaultScope = $DefaultScope
+$script:Version      = '0.2.0'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
 
 # 受管钥匙：工具完全拥有这些键，启用时按目标档案 设置/清除，其它变量一律不动。
 $script:KnownKeys = @(
@@ -482,7 +483,7 @@ function Main-Menu($store) {
         $n = $store.providers.Count
         $items  = @($labels) + '' + '＋ 新增档案' + '' + '退出'
         $colors = @{ ($n + 1) = 'Yellow' }   # 「＋ 新增档案」用亮黄色突出
-        $sel = Select-Menu -Title 'Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）' -Items $items -Colors $colors -Hint '↑↓ 选择 · Enter 进入 · q 退出'
+        $sel = Select-Menu -Title "ccx v$($script:Version) · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）" -Items $items -Colors $colors -Hint '↑↓ 选择 · Enter 进入 · q 退出'
         if ($sel -lt 0 -or $sel -eq $n + 3) { break }       # 退出 / Esc
         elseif ($sel -eq $n + 1) { New-Provider $store }     # 新增
         else { Action-Menu $store $store.providers[$sel] }   # 选中某档案
