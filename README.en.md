@@ -54,8 +54,6 @@ place, or prefer an all-in-one tool.
   `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `CLAUDE_CODE_EFFORT_LEVEL`.
 - On switch it clears the managed variables the target profile doesn't use (the two auth
   fields are mutually exclusive), so nothing leaks from the previous provider.
-- **Keys** are stored in `~/.cc-mini/providers.json` (plaintext, a local file protected by
-  your account). **Never commit it to a repo** (it's in `.gitignore`).
 
 > 💡 **About `settings.json` and other Claude Code config files:** don't manage them with
 > third-party tools (ccx deliberately doesn't either). To change them, use Claude Code's own
@@ -221,7 +219,7 @@ whole file.** If it doesn't exist, create it as `{ "hasCompletedOnboarding": tru
 
 ## Files & data
 
-- Profiles (with keys): `~/.cc-mini/providers.json`
+- Profiles (with keys, stored **in plaintext** locally — don't share): `~/.cc-mini/providers.json`
 - Preset URLs: `presets.json` (shipped)
 - "Set as default" writes **Windows user environment variables**, not a file; switching to
   "官方" clears all managed variables.
