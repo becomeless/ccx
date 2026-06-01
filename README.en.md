@@ -70,14 +70,25 @@ place, or prefer an all-in-one tool.
 
 ## Install
 
+**Option 1: PowerShell Gallery (recommended)**
+
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\install.ps1
+Install-Module ccx
 ```
 
-It registers an `xx` function in your PowerShell `$PROFILE` (wrapped in `# >>> xx >>>`
-markers, idempotent). **Open a new terminal** afterwards and `xx` is ready.
+Then type `xx` in any terminal (the module auto-loads). Update with `Update-Module ccx`;
+remove with `Uninstall-Module ccx`.
 
-> You can also skip install and just run `pwsh -File path\xx.ps1`.
+**Option 2: from source (dev / custom)**
+
+```powershell
+git clone https://github.com/becomeless/ccx
+pwsh -ExecutionPolicy Bypass -File .\ccx\install.ps1
+```
+
+This registers an `xx` function in your PowerShell `$PROFILE` (wrapped in `# >>> xx >>>`
+markers, idempotent). **Open a new terminal** afterwards. You can also skip install and just
+run `pwsh -File path\xx.ps1`.
 
 ## Quick start
 
