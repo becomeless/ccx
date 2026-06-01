@@ -19,4 +19,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+# ───── Claude Code 本地开发文件（不随仓库发布）─────
+CLAUDE.md
+.claude/
+
 # 注意：presets.json 是要随工具发布的（预置地址表），不要忽略它。
