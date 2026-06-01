@@ -1,0 +1,22 @@
+# ───── 用户私有数据（含 API 密钥），绝对不要提交 ─────
+# 实际档案存在 ~/.cc-mini/，本就在仓库外；以下是防止有人把它拷进仓库
+.cc-mini/
+providers.json
+**/providers.json
+*.providers.json
+
+# ───── 测试 / 临时产物 ─────
+_test/
+_t/
+_t2/
+_smoke/
+*.tmp
+*.bak
+
+# ───── 系统 / 编辑器 ─────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 注意：presets.json 是要随工具发布的（预置地址表），不要忽略它。

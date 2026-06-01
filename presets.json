@@ -1,0 +1,6 @@
+[
+  { "name": "DeepSeek",  "url": "https://api.deepseek.com/anthropic" },
+  { "name": "智谱GLM",   "url": "https://open.bigmodel.cn/api/anthropic" },
+  { "name": "小米MiMo",  "url": "https://api.xiaomimimo.com/anthropic" },
+  { "name": "官方Anthropic(留空)", "url": "" }
+]

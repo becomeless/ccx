@@ -1,0 +1,2 @@
+# 仓库内统一用 LF 换行，消除跨平台 CRLF 差异
+* text=auto eol=lf
