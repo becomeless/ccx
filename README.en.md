@@ -246,11 +246,20 @@ not support it. DeepSeek recommends `max`; leave others empty.
 - Remove the block between `# >>> xx >>>` and `# <<< xx <<<` in your `$PROFILE`;
 - Clear the user env vars: run `xx` → Set as default → 官方 clears all managed variables.
 
-## Contributing
+## Philosophy
 
-Issues / PRs welcome. There is exactly one non-negotiable design rule: **never write the
-user's config files.** Any change that writes `~/.claude/settings.json` or `~/.claude.json`
-will not be accepted.
+ccx was born out of my own friction using cc-switch. This isn't a criticism — cc-switch is
+powerful and capable; I just wanted a lighter path.
+
+So ccx follows a single principle: **the simpler, the better.**
+
+- Do one thing — switch the API — and do it well;
+- Touch as little as possible — above all, **never write the user's config files**
+  (`~/.claude/settings.json`, `~/.claude.json`);
+- Before adding any feature, ask first: can we *not* add it?
+
+Issues / PRs welcome. But remember: **a change that makes ccx simpler is more welcome than one
+that makes it more powerful.** Any change that writes the user's config files will not be accepted.
 
 ## License
 
