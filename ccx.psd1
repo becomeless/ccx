@@ -107,7 +107,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'v0.2.1：预设升级为「供应商目录」（多 API 地址 + 推荐模型），新增/编辑时选供应商自动填充；同供应商可建多份配置（名称自动去重，靠备注区分）；主菜单 Shift+↑↓ 就地排序；编辑后光标停在原处；术语「档案」统一改为「配置」；补充小米 MiMo TokenPlan 地址。'
+        ReleaseNotes = 'v0.2.1：预设升级为「供应商目录」（多 API 地址 + 推荐模型），新增/编辑时选供应商自动填充；同供应商可建多份配置（名称自动去重，靠备注区分）；主菜单 Shift+↑↓ 就地排序；编辑后光标停在原处；术语「档案」统一改为「配置」；补充小米 MiMo TokenPlan 地址；「设为默认」改为直写注册表 + 单次短超时广播并加进度提示，从数秒降到约 0.5 秒。'
 
         # Prerelease string of this module
         # Prerelease = ''

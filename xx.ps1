@@ -185,20 +185,69 @@ function Show-State($prov) {
 #  两种启用
 # ============================================================
 
+# 通知系统“用户环境变量变了”，让之后新开的终端能读到（不影响已运行进程）。
+# 用自己的 SendMessageTimeout：SMTO_ABORTIFHUNG + 100ms 短超时，卡住的窗口立即跳过——
+# 比 .NET SetEnvironmentVariable 内部那次「每窗口 1000ms」的广播快得多。
+function Invoke-EnvBroadcast {
+    if (-not ('Ccx.Native' -as [type])) {
+        try {
+            Add-Type -ErrorAction Stop -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+namespace Ccx {
+  public static class Native {
+    [DllImport("user32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
+    static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+    public static void NotifyEnvChange() {
+      UIntPtr r;
+      // HWND_BROADCAST=0xffff, WM_SETTINGCHANGE=0x001A, SMTO_ABORTIFHUNG=0x0002, 100ms
+      SendMessageTimeout((IntPtr)0xffff, 0x001A, UIntPtr.Zero, "Environment", 0x0002, 100, out r);
+    }
+  }
+}
+'@
+        } catch { return }
+    }
+    try { [Ccx.Native]::NotifyEnvChange() } catch { }
+}
+
+# 写用户环境变量（仅 User 作用域用此快路径）：
+#   直接写 HKCU:\Environment 注册表（瞬时、不广播），最后只做一次短超时广播。
+#   对比逐个 [Environment]::SetEnvironmentVariable(_, _, 'User')：那会广播 7 次、每次每窗口
+#   等到 1s，窗口一多就拖到好几秒。
+function Set-UserEnv-Fast([string[]]$keys, [hashtable]$vals) {
+    $reg = 'HKCU:\Environment'
+    foreach ($k in $keys) {
+        $v = $vals[$k]
+        if ([string]::IsNullOrEmpty($v)) { Remove-ItemProperty -Path $reg -Name $k -ErrorAction SilentlyContinue }
+        else { Set-ItemProperty -Path $reg -Name $k -Value $v -Type String }
+    }
+    Invoke-EnvBroadcast
+}
+
 # 设为默认：写用户环境变量（新终端裸 claude 生效；不影响运行中会话）
 function Set-Default($store, $prov) {
     $envMap = Get-ProviderEnvMap $prov
     $noKey = [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_AUTH_TOKEN']) -and [string]::IsNullOrWhiteSpace($envMap['ANTHROPIC_API_KEY'])
     if ($prov.name -ne '官方' -and $noKey) { Write-Host "  ⚠ 配置 [$($prov.name)] 还没填密钥。" -ForegroundColor Yellow }
 
-    foreach ($k in (Get-ManagedKeys)) {
-        $val = if ($envMap.ContainsKey($k) -and -not [string]::IsNullOrWhiteSpace($envMap[$k])) { $envMap[$k] } else { $null }
-        [Environment]::SetEnvironmentVariable($k, $val, $script:DefaultScope)
+    Write-Host ""
+    Write-Host "  正在写入用户环境变量…" -ForegroundColor DarkGray
+
+    $keys = @(Get-ManagedKeys)
+    $vals = @{}
+    foreach ($k in $keys) {
+        $vals[$k] = if ($envMap.ContainsKey($k) -and -not [string]::IsNullOrWhiteSpace($envMap[$k])) { $envMap[$k] } else { $null }
+    }
+    if ($script:DefaultScope -eq 'User' -and $IsWindows) {
+        Set-UserEnv-Fast $keys $vals
+    }
+    else {
+        foreach ($k in $keys) { [Environment]::SetEnvironmentVariable($k, $vals[$k], $script:DefaultScope) }
     }
     $store.current = $prov.name
     Save-Store $store
 
-    Write-Host ""
     Write-Host "  ✓ 已设为默认：$($prov.name)" -ForegroundColor Green
     Write-Host "    新开的终端裸敲  claude  就会用它；正在运行的会话不受影响。" -ForegroundColor White
     Write-Host "    （当前这个终端是旧环境，需【新开终端】才生效。）" -ForegroundColor DarkGray
