@@ -57,6 +57,12 @@ place, or prefer an all-in-one tool.
 - **Keys** are stored in `~/.cc-mini/providers.json` (plaintext, a local file protected by
   your account). **Never commit it to a repo** (it's in `.gitignore`).
 
+> 💡 **About `settings.json` and other Claude Code config files:** don't manage them with
+> third-party tools (ccx deliberately doesn't either). To change them, use Claude Code's own
+> `/update-config` and just describe what you want in natural language (e.g. "allow npm
+> commands", "switch to dark theme") — Claude Code maintains the file itself, which is safer
+> than letting an external tool rewrite it.
+
 ## Requirements
 
 - **PowerShell 7+ (`pwsh`)** — installable on Windows / macOS / Linux. Currently verified
