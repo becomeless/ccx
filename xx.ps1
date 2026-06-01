@@ -200,38 +200,88 @@ function Session-Launch($store, $prov) {
 # ============================================================
 #  ↑↓ 选择菜单（含数字快捷键 / 非交互回退）
 # ============================================================
+# 计算字符串在终端的显示宽度（CJK / 全角算 2，其余算 1），用于按显示宽度对齐。
+function Get-DisplayWidth([string]$s) {
+    $w = 0
+    foreach ($ch in $s.ToCharArray()) {
+        $c = [int][char]$ch
+        if (($c -ge 0x1100 -and $c -le 0x115F) -or ($c -ge 0x2E80 -and $c -le 0xA4CF) -or
+            ($c -ge 0xAC00 -and $c -le 0xD7A3) -or ($c -ge 0xF900 -and $c -le 0xFAFF) -or
+            ($c -ge 0xFE30 -and $c -le 0xFE4F) -or ($c -ge 0xFF00 -and $c -le 0xFF60) -or
+            ($c -ge 0xFFE0 -and $c -le 0xFFE6)) { $w += 2 } else { $w += 1 }
+    }
+    return $w
+}
+function Pad-Display([string]$s, [int]$Width) {
+    $n = $Width - (Get-DisplayWidth $s)
+    if ($n -gt 0) { return $s + (' ' * $n) }
+    return $s
+}
+
+# 写一行并按显示宽度补足空格清掉整行余留（重绘原地覆盖用，避免残影）。
+function Write-MenuLine([string]$text, $color) {
+    $w = [Console]::WindowWidth
+    $dw = Get-DisplayWidth $text
+    if ($dw -lt ($w - 1)) { $text = $text + (' ' * (($w - 1) - $dw)) }
+    Write-Host $text -ForegroundColor $color
+}
+
+# ↑↓ 选择菜单。空串 '' = 不可选分隔空行（导航跳过）。
+# 重绘时光标回到菜单顶端原地覆盖、隐藏光标 → 不闪烁。
 function Select-Menu {
-    param([string]$Title, [string[]]$Items, [string]$Hint, [int]$Start = 0)
+    param([string]$Title, [string[]]$Items, [string]$Hint, [int]$Start = 0, [hashtable]$Colors)
+    $nextSel = {
+        param($i, $d)
+        do { $i = ($i + $d + $Items.Count) % $Items.Count } while ($Items[$i] -eq '')
+        $i
+    }
     $idx = $Start
-    while ($true) {
-        Clear-Host
+    if ($Items[$idx] -eq '') { $idx = & $nextSel $idx 1 }
+
+    # 非交互/无法操作控制台时的回退：渲染一次 + Read-Host
+    $canConsole = $true
+    try { $null = [Console]::CursorVisible } catch { $canConsole = $false }
+    if (-not $canConsole) {
         Write-Host ''
         if ($Title) { Write-Host "  $Title" -ForegroundColor Cyan; Write-Host '' }
-        for ($i = 0; $i -lt $Items.Count; $i++) {
-            if ($i -eq $idx) { Write-Host ("   ▶ {0}" -f $Items[$i]) -ForegroundColor Green }
-            else             { Write-Host ("     {0}" -f $Items[$i]) -ForegroundColor Gray }
-        }
-        Write-Host ''
-        if ($Hint) { Write-Host "  $Hint" -ForegroundColor DarkGray }
-        try { $key = [Console]::ReadKey($true) }
-        catch {
-            $n = (Read-Host '  输入序号选择 (q 取消)').Trim()
-            if ($n -eq 'q') { return -1 }
-            if ($n -match '^\d+$' -and [int]$n -ge 1 -and [int]$n -le $Items.Count) { return [int]$n - 1 }
-            continue
-        }
-        switch ($key.Key) {
-            'UpArrow'   { $idx = ($idx - 1 + $Items.Count) % $Items.Count }
-            'DownArrow' { $idx = ($idx + 1) % $Items.Count }
-            'Enter'     { return $idx }
-            'Escape'    { return -1 }
-            default {
-                $ch = $key.KeyChar
-                if ($ch -match '^\d$') { $n = [int]"$ch"; if ($n -ge 1 -and $n -le $Items.Count) { return $n - 1 } }
-                if ($ch -eq 'q') { return -1 }
+        for ($i = 0; $i -lt $Items.Count; $i++) { if ($Items[$i] -ne '') { Write-Host ("   {0}. {1}" -f ($i + 1), $Items[$i]) } }
+        $n = (Read-Host '  输入序号 (q 取消)').Trim()
+        if ($n -eq 'q') { return -1 }
+        if ($n -match '^\d+$' -and [int]$n -ge 1 -and [int]$n -le $Items.Count -and $Items[[int]$n - 1] -ne '') { return [int]$n - 1 }
+        return -1
+    }
+
+    Clear-Host
+    $top = [Console]::CursorTop
+    [Console]::CursorVisible = $false
+    try {
+        while ($true) {
+            [Console]::SetCursorPosition(0, $top)
+            Write-MenuLine '' 'Gray'
+            if ($Title) { Write-MenuLine "  $Title" 'Cyan'; Write-MenuLine '' 'Gray' }
+            for ($i = 0; $i -lt $Items.Count; $i++) {
+                if ($Items[$i] -eq '') { Write-MenuLine '' 'Gray'; continue }
+                if ($i -eq $idx)       { Write-MenuLine ("   ▶ {0}" -f $Items[$i]) 'Green'; continue }
+                $fg = if ($Colors -and $Colors.ContainsKey($i)) { $Colors[$i] } else { 'Gray' }
+                Write-MenuLine ("     {0}" -f $Items[$i]) $fg
+            }
+            Write-MenuLine '' 'Gray'
+            if ($Hint) { Write-MenuLine "  $Hint" 'DarkGray' }
+            $key = [Console]::ReadKey($true)
+            switch ($key.Key) {
+                'UpArrow'   { $idx = & $nextSel $idx -1 }
+                'DownArrow' { $idx = & $nextSel $idx 1 }
+                'Enter'     { return $idx }
+                'Escape'    { return -1 }
+                default {
+                    $ch = $key.KeyChar
+                    if ($ch -match '^\d$') { $n = [int]"$ch"; if ($n -ge 1 -and $n -le $Items.Count -and $Items[$n - 1] -ne '') { return $n - 1 } }
+                    if ($ch -eq 'q') { return -1 }
+                }
             }
         }
     }
+    finally { [Console]::CursorVisible = $true }
 }
 
 # ============================================================
@@ -266,6 +316,63 @@ function Pick-BaseUrl($current, $store) {
     return $v.Trim()
 }
 
+# 可取消的文本输入：Esc=取消(不改)，回车空=不改，输入 - 回车=清空；支持退格与粘贴。
+# 仅用于纯英文内容（密钥/模型）；中文字段（名称/备注）用 Read-Host 以兼容输入法。
+function Read-Value {
+    param([string]$Label, [string]$Current, [switch]$Secret)
+    Write-Host ''
+    Write-Host "  $Label" -ForegroundColor White
+    $cur = if ([string]::IsNullOrEmpty($Current)) { '(空)' } elseif ($Secret) { '********' } else { $Current }
+    Write-Host "  当前：$cur" -ForegroundColor DarkGray
+    Write-Host "  回车=不改 · 输入/粘贴=替换 · 输入 - 回车=清空 · Esc=取消" -ForegroundColor DarkGray
+    $canKey = $true
+    try { $null = [Console]::KeyAvailable } catch { $canKey = $false }
+    if (-not $canKey) {
+        $v = Read-Host '  >'
+        if ($v -eq '')  { return [pscustomobject]@{ Changed = $false } }
+        if ($v -eq '-') { return [pscustomobject]@{ Changed = $true; Value = '' } }
+        return [pscustomobject]@{ Changed = $true; Value = $v }
+    }
+    $buf = [System.Text.StringBuilder]::new()
+    Write-Host -NoNewline '  > '
+    while ($true) {
+        $k = [Console]::ReadKey($true)
+        if ($k.Key -eq 'Enter') {
+            Write-Host ''
+            $s = $buf.ToString()
+            if ($s -eq '')  { return [pscustomobject]@{ Changed = $false } }
+            if ($s -eq '-') { return [pscustomobject]@{ Changed = $true; Value = '' } }
+            return [pscustomobject]@{ Changed = $true; Value = $s }
+        }
+        elseif ($k.Key -eq 'Escape') {
+            Write-Host '   (已取消，未修改)' -ForegroundColor DarkGray
+            return [pscustomobject]@{ Changed = $false }
+        }
+        elseif ($k.Key -eq 'Backspace') {
+            if ($buf.Length -gt 0) { [void]$buf.Remove($buf.Length - 1, 1); Write-Host -NoNewline "`b `b" }
+        }
+        elseif ($k.KeyChar -and [int]$k.KeyChar -ge 32) {
+            [void]$buf.Append($k.KeyChar)
+            Write-Host -NoNewline $(if ($Secret) { '*' } else { [string]$k.KeyChar })
+        }
+    }
+}
+
+function Pick-Auth($current) {
+    $items = @('AUTH_TOKEN  （Bearer，多数第三方中转）', 'API_KEY  （x-api-key，官方/少数）', '不修改')
+    $sel = Select-Menu -Title "认证字段（当前：$current）" -Items $items -Hint '↑↓ 选择 · Enter 确认 · q 不改'
+    switch ($sel) { 0 { 'AUTH_TOKEN' } 1 { 'API_KEY' } default { $current } }
+}
+
+function Pick-Effort($current) {
+    $opts  = @('low', 'medium', 'high', 'xhigh', 'max', 'auto')
+    $items = @($opts) + '留空（不设）' + '不修改'
+    $sel = Select-Menu -Title "effort 思考档（当前：$(if($current){$current}else{'(空)'})）" -Items $items -Hint '越往后越深入；auto=模型默认 · q 不改'
+    if ($sel -lt 0 -or $sel -eq $items.Count - 1) { return $current }
+    if ($sel -eq $opts.Count) { return '' }
+    return $opts[$sel]
+}
+
 function Edit-Form($prov, $store) {
     $map = Get-ProviderEnvMap $prov
     $usesApiKey = -not [string]::IsNullOrWhiteSpace($map['ANTHROPIC_API_KEY'])
@@ -282,21 +389,30 @@ function Edit-Form($prov, $store) {
     }
     function _v($x) { if ([string]::IsNullOrWhiteSpace($x)) { '(空)' } else { $x } }
     while ($true) {
-        Clear-Host
-        Write-Host "`n  —— 编辑档案 —— `n" -ForegroundColor Cyan
-        Write-Host ("   1. 名称          : {0}" -f (_v $W.name))
-        Write-Host ("   2. 备注          : {0}" -f (_v $W.note))
-        Write-Host ("   3. API 地址      : {0}" -f (_v $W.base))
-        Write-Host ("   4. 认证字段      : {0}" -f $W.auth)
-        Write-Host ("   5. API 密钥      : {0}" -f $(if ([string]::IsNullOrWhiteSpace($W.token)) { '(空)' } else { '********' }))
-        Write-Host ("   6. opus  → 模型  : {0}" -f (_v $W.opus))
-        Write-Host ("   7. sonnet→ 模型  : {0}" -f (_v $W.sonnet))
-        Write-Host ("   8. haiku → 模型  : {0}  (含后台任务)" -f (_v $W.haiku))
-        Write-Host ("   9. effort 思考档 : {0}  (low/medium/high/xhigh/max/auto，留空=不设)" -f (_v $W.effort))
-        Write-Host "`n  输序号修改该项（进去后回车=不改本项），s=保存，c=取消" -ForegroundColor DarkGray
-        $c = (Read-Host '  >').Trim().ToLower()
-        switch ($c) {
-            's' {
+        $rows = @(
+            ('名称          : {0}' -f (_v $W.name)),
+            ('备注          : {0}' -f (_v $W.note)),
+            ('API 地址      : {0}' -f (_v $W.base)),
+            ('认证字段      : {0}' -f $W.auth),
+            ('API 密钥      : {0}' -f $(if ([string]::IsNullOrWhiteSpace($W.token)) { '(空)' } else { '********' })),
+            ('opus  → 模型  : {0}' -f (_v $W.opus)),
+            ('sonnet→ 模型  : {0}' -f (_v $W.sonnet)),
+            ('haiku → 模型  : {0}' -f (_v $W.haiku)),
+            ('effort 思考档 : {0}' -f (_v $W.effort))
+        )
+        $items = @($rows) + '' + '保存并返回' + '放弃修改'   # '' = 分隔空行（与上方拉开距离）
+        $sel = Select-Menu -Title '编辑档案  （↑↓ 选要改的项，Enter 进入；↓到底可选保存/放弃）' -Items $items -Hint '输入项内：Esc 取消该项 · 回车不改 · 输入 - 清空'
+        switch ($sel) {
+            0 { $v = Read-Host '  名称（回车=不改）'; if (-not [string]::IsNullOrWhiteSpace($v)) { $W.name = $v.Trim() } }
+            1 { $v = Read-Host '  备注（回车=不改，- =清空）'; if ($v -eq '-') { $W.note = '' } elseif (-not [string]::IsNullOrWhiteSpace($v)) { $W.note = $v.Trim() } }
+            2 { $W.base   = Pick-BaseUrl $W.base $store }
+            3 { $W.auth   = Pick-Auth $W.auth }
+            4 { $r = Read-Value -Label 'API 密钥' -Current $W.token -Secret;        if ($r.Changed) { $W.token  = $r.Value } }
+            5 { $r = Read-Value -Label 'opus  映射模型' -Current $W.opus;            if ($r.Changed) { $W.opus   = $r.Value } }
+            6 { $r = Read-Value -Label 'sonnet 映射模型' -Current $W.sonnet;          if ($r.Changed) { $W.sonnet = $r.Value } }
+            7 { $r = Read-Value -Label 'haiku 映射模型（含后台任务）' -Current $W.haiku; if ($r.Changed) { $W.haiku  = $r.Value } }
+            8 { $W.effort = Pick-Effort $W.effort }
+            10 {
                 $fields = @{ 'ANTHROPIC_BASE_URL' = $W.base
                              'ANTHROPIC_DEFAULT_OPUS_MODEL' = $W.opus
                              'ANTHROPIC_DEFAULT_SONNET_MODEL' = $W.sonnet
@@ -308,19 +424,7 @@ function Edit-Form($prov, $store) {
                 Set-Note $prov ($W.note)
                 return $true
             }
-            'c' { return $false }
-            '1' { $v = Read-Host '    新名称（回车=不改）'; if (-not [string]::IsNullOrWhiteSpace($v)) { $W.name = $v.Trim() } }
-            '2' { $v = Read-Host '    备注（回车=不改，- =清空）'; if ($v -eq '-') { $W.note = '' } elseif (-not [string]::IsNullOrWhiteSpace($v)) { $W.note = $v.Trim() } }
-            '3' { $W.base = Pick-BaseUrl $W.base $store }
-            '4' {
-                $a = (Read-Host '    认证字段  1=AUTH_TOKEN(Bearer,多数中转)  2=API_KEY(官方/少数)  (回车=不改)').Trim()
-                if ($a -eq '1') { $W.auth = 'AUTH_TOKEN' } elseif ($a -eq '2') { $W.auth = 'API_KEY' }
-            }
-            '5' { $v = Read-Host '    API 密钥（回车=不改，- =清空）'; if ($v -eq '-') { $W.token = '' } elseif ($v -ne '') { $W.token = $v } }
-            '6' { $v = (Read-Host '    opus 映射模型（回车=不改，- =清空）').Trim();   if ($v -eq '-') { $W.opus = '' }   elseif ($v -ne '') { $W.opus = $v } }
-            '7' { $v = (Read-Host '    sonnet 映射模型（回车=不改，- =清空）').Trim(); if ($v -eq '-') { $W.sonnet = '' } elseif ($v -ne '') { $W.sonnet = $v } }
-            '8' { $v = (Read-Host '    haiku 映射模型（回车=不改，- =清空）').Trim();  if ($v -eq '-') { $W.haiku = '' }  elseif ($v -ne '') { $W.haiku = $v } }
-            '9' { $v = (Read-Host '    effort（low/medium/high/xhigh/max/auto，回车=不改，- =清空）').Trim(); if ($v -eq '-') { $W.effort = '' } elseif ($v -ne '') { $W.effort = $v } }
+            default { return $false }
         }
     }
 }
@@ -373,14 +477,15 @@ function Main-Menu($store) {
         foreach ($p in $store.providers) {
             $cur  = if ($p.name -eq $store.current) { '（默认）' } else { '' }
             $note = $(if (Get-Note $p) { "  — $(Get-Note $p)" } else { '' })
-            $labels += ('{0,-14}{1,-8}[{2}]{3}' -f $p.name, $cur, (Show-State $p), $note)
+            $labels += ('{0}{1}[{2}]{3}' -f (Pad-Display $p.name 16), (Pad-Display $cur 8), (Show-State $p), $note)
         }
-        $labels += '＋ 新增档案'
-        $labels += '退出'
-        $sel = Select-Menu -Title 'Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）' -Items $labels -Hint '↑↓ 选择 · Enter 进入 · q 退出'
-        if ($sel -lt 0 -or $sel -eq $labels.Count - 1) { break }
-        elseif ($sel -eq $store.providers.Count) { New-Provider $store }
-        else { Action-Menu $store $store.providers[$sel] }
+        $n = $store.providers.Count
+        $items  = @($labels) + '' + '＋ 新增档案' + '' + '退出'
+        $colors = @{ ($n + 1) = 'Yellow' }   # 「＋ 新增档案」用亮黄色突出
+        $sel = Select-Menu -Title 'Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）' -Items $items -Colors $colors -Hint '↑↓ 选择 · Enter 进入 · q 退出'
+        if ($sel -lt 0 -or $sel -eq $n + 3) { break }       # 退出 / Esc
+        elseif ($sel -eq $n + 1) { New-Provider $store }     # 新增
+        else { Action-Menu $store $store.providers[$sel] }   # 选中某档案
     }
 }
 
@@ -395,7 +500,7 @@ if ($List) {
     foreach ($p in $store.providers) {
         $mark = if ($p.name -eq $store.current) { '▶' } else { ' ' }
         $note = $(if (Get-Note $p) { "  — $(Get-Note $p)" } else { '' })
-        Write-Host ("   {0} {1,-14}[{2}]{3}" -f $mark, $p.name, (Show-State $p), $note)
+        Write-Host ("   {0} {1}[{2}]{3}" -f $mark, (Pad-Display $p.name 18), (Show-State $p), $note)
     }
     Write-Host ''
     return
