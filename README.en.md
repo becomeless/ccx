@@ -6,8 +6,8 @@
 between the official account and third-party Anthropic-compatible APIs (DeepSeek,
 Zhipu GLM, Xiaomi MiMo, etc.).
 
-What makes it different: **it never writes any config file**. It works purely through
-environment variables, so it is **physically incapable of clobbering your MCP servers,
+What makes it different: **it never writes any Claude Code config file**. API switching works
+purely through environment variables, so it is **physically incapable of clobbering your MCP servers,
 plugins, or hooks** — and it lets **multiple terminals each run a different API at the
 same time, without interfering with one another**.
 
@@ -49,7 +49,7 @@ place, or prefer an all-in-one tool.
 
 ## Safety
 
-- **Writes no config files.** It never touches `~/.claude/settings.json`, and never opens
+- **Writes no Claude Code config files.** It never touches `~/.claude/settings.json`, and never opens
   `~/.claude.json` (where your MCP config lives). MCP / plugins / hooks / permissions
   cannot be affected.
 - It only ever sets/clears these 7 "managed" variables, nothing else:
@@ -327,12 +327,12 @@ powerful and capable; I just wanted a lighter path.
 So ccx follows a single principle: **the simpler, the better.**
 
 - Do one thing — switch the API — and do it well;
-- Touch as little as possible — above all, **never write the user's config files**
+- Touch as little as possible — above all, **never write Claude Code config files**
   (`~/.claude/settings.json`, `~/.claude.json`);
 - Before adding any feature, ask first: can we *not* add it?
 
 Issues / PRs welcome. But remember: **a change that makes ccx simpler is more welcome than one
-that makes it more powerful.** Any change that writes the user's config files will not be accepted.
+that makes it more powerful.** Any change that writes Claude Code config files will not be accepted.
 
 ## License
 

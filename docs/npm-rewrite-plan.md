@@ -47,9 +47,9 @@
 真实代码里 `"官方"` 是贯穿全局的判断条件（`name -eq '官方'` → 显示"登录态"`xx.ps1:170`、跳过缺密钥警告
 `:233/:259`、删除时"建议保留"`:629`），而 `name` 同时是 providers.json 的**唯一主键**（`current`/`xx <name>`/删除全靠它）。
 **不能既翻译它显示成 "Official" 又拿它当稳定 key。** 修法：数据层加稳定标识 `builtin`（官方档 = `"official"`），
-或直接以「env 为空」判定官方；代码所有判断改认 `builtin === 'official'`，中/英只是它的**显示名**。
-读旧文件容错：没有 `builtin` 字段时，认 `name === '官方'`（与现版 PowerShell 的判定完全一致）。
-**不采用「env 为空」兜底**——半创建/未填 base 的第三方档 env 也可能是空，会误判。
+代码判断优先认 `builtin === 'official'`，中/英只是它的**显示名**。
+读旧文件容错：没有 `builtin` 字段时，仅当 `name === '官方' && env 为空` 才认作官方档。
+**不采用「仅以 env 为空」判定官方**——半创建/未填 base 的第三方档 env 也可能是空，会误判。
 （M1 已落地：`Provider.builtin?: string`，官方档 `builtin:'official'`；`defaultStore()` 写它、`isOfficial()` 读它。）
 DeepSeek/智谱GLM/小米MiMo 是专有名词，**保持原样不翻译**，只有"官方"这个普通名词需要这层拆分。
 
@@ -79,12 +79,13 @@ PS 里它写进程作用域；Node 进程一退即没、无意义。它真实用
 
 ## 2. 铁律（违反即作废，来自 CLAUDE.md）
 
-**ccx 永远不写任何「配置文件」** —— 不写 `~/.claude/settings.json`、不碰 `~/.claude.json`（MCP 配置）。
-它 **只通过环境变量** 工作。这是工具存在的全部理由（不可能误伤用户的 MCP/插件/hooks）。
+**ccx 永远不写任何 Claude Code 配置文件** —— 不写 `~/.claude/settings.json`、不碰 `~/.claude.json`（MCP 配置）。
+它 **只通过环境变量切换 API**。这是工具存在的全部理由（不可能误伤用户的 MCP/插件/hooks）。
 
+- ccx 允许写自己的运行数据 `~/.cc-mini/providers.json`。
 - 「设为默认」在 Unix 上写 shell 启动文件（`.zshrc`/`.bashrc`）—— 这与现版 `install.ps1` 改 `$PROFILE`
   同性质，**不碰 `~/.claude`，不违反铁律**。这是 Unix 上唯一的「持久化用户环境变量」手段。
-- 任何写用户 config 文件的设计都要拒绝。拿不准时，选「让工具更简单」的那条路。
+- 任何写 Claude Code config 文件的设计都要拒绝。拿不准时，选「让工具更简单」的那条路。
 
 ### 受管的 7 个环境变量（只动这些，其它一律不碰）
 
@@ -310,7 +311,7 @@ ccx/
     config/
       types.ts                // KNOWN_KEYS / Provider(含 builtin) / Store(含 lang) / Preset 等类型
       store.ts                // providers.json 读写、默认生成、isOfficial / buildProviderEnv / getProviderState
-                              //   / resolveUniqueName / reconcileBuiltin / peekStoreLang …
+                              //   / resolveUniqueName / reconcileBuiltin / reconcileCurrent / peekStoreLang …
       presets.ts              // BUILTIN_PRESETS 常量 + loadPresets（用户~/.cc-mini > 包内 > 内置）
     env/
       session.ts              // 本次启用：applyManagedEnv + sessionLaunch（spawn inherit；Win 经 cmd.exe 启 .cmd）
@@ -376,7 +377,7 @@ npm publish
 - [x] **M1 数据层**（完成，2026-06-02；`_smoke/m1.ts` 21 项断言全过、`tsc` 干净、`--list` 实跑正确）：
   - [x] `src/config/types.ts`：`KNOWN_KEYS` / `ManagedKey` / `Lang` / `Provider`（含 `builtin?`）/ `Store`（含 `lang?`）/ `Preset` 等类型。
   - [x] `src/config/store.ts`：`resolveStorePaths`(`--store-dir`/默认 ~/.cc-mini)、`defaultStore`(官方带 `builtin:'official'`)、
-        `loadStore`(容错规整 + 缺文件即生成落盘)、`saveStore`(UTF-8 无 BOM + 2 空格 + 末尾换行)、`isOfficial`(builtin 优先、名兜底)、
+        `loadStore`(容错规整 + 缺文件即生成落盘)、`saveStore`(UTF-8 无 BOM + 2 空格 + 末尾换行)、`isOfficial`(builtin 优先、仅旧数据空 env 名称兜底)、
         `getProviderEnvMap`、`buildProviderEnv`(按 KNOWN_KEYS 序、丢空)、`getProviderState`(返回**语义枚举** KeyState+effort，不含界面文案，留给 i18n)、
         `findProvider`、`resolveUniqueName`、`getLang`/`setLang`。
   - [x] `src/config/presets.ts`：`BUILTIN_PRESETS` 常量(镜像 presets.json) + `loadPresets`(用户 `~/.cc-mini/presets.json` > 包内 presets.json > 内置兜底；坏 json 安静跌落)。
@@ -403,7 +404,9 @@ npm publish
   - [x] 顺带：移除未用的 `@inquirer/prompts` 依赖（deps 仅剩 commander/string-width/which）。
 - [x] **M5 健壮性收口 + help i18n + 发布前回归**（完成，2026-06-02；参数本就已存在，重点是「收紧」而非「补参数」）：
   - [x] 3 个 P1 修复：①持久化失败/fish 不支持时不更新 `store.current`（default.ts）；②`--default-scope`/`--lang`
-        用 commander `.choices` 严格校验，拼错报错退出、不再静默回退危险路径；③编辑使官方档变第三方时清 `builtin`（store.ts `reconcileBuiltin`）。`_smoke/m5fix.ts` 全过 + CLI 实测。
+        用 commander `.choices` 严格校验，拼错报错退出、不再静默回退危险路径；③编辑使官方档变第三方时清 `builtin`，且旧数据名称兜底仅认
+        `name==='官方' && env为空`（store.ts `reconcileBuiltin` / `isOfficial`）；④删除当前默认配置后回退到剩余官方档或第一项（`reconcileCurrent`）。
+        `_smoke/m5fix.ts` 全过 + CLI 实测。
   - [x] help i18n：parse 前用 `peekArg(--lang/--store-dir)` + `peekStoreLang`（只读不生成）定语言，commander 的
         description/argument/option/version/help 文案全走 `T()`。实测 `--help` 中英切换正确（commander 内建的 Usage/Options 段标题仍英文，标准做法，可接受）。
   - [x] 发布前回归：CLI 全路径（--version/--help/--list/`<name>` 设默认/未知名/拼错参数）× 中英各走一遍，全部正确；4 个 smoke 无回归。菜单交互此前已用户真机验证。
@@ -441,6 +444,9 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（**M6 发布前复核收口**）：补齐官方档降级边界（旧数据名称兜底收紧为 `name==='官方' && env为空`）；
+  删除当前默认配置后回退到剩余官方档/第一项；`package.json bin.xx` 去掉 npm 会自动清理的 `./` 前缀；发布教程修正
+  `cc-x --version` 命令名混淆、把 2FA / bypass-2FA granular token 写成发布必备条件；铁律统一精确为「不写 Claude Code 配置文件」。
 - 2026-06-02（**M7 文档完成 + 版本定 0.3.0**）：README 中英双版改成「npm 全平台版为主 + PS 旧版备选」（安装/环境/CLI/菜单语言项/
   设为默认跨平台/卸载/数据位置/presets 用户覆盖全部同步）；CLAUDE.md 补双 edition 说明；新增 `docs/publish-guide.md`（M6 发布手把手）。
   版本 `0.3.0-alpha.0`→`0.3.0`，`npm pack --dry-run` 包内容干净（24 文件）。**只剩 M6**：用户准备好 npm 账号后照 publish-guide 发布
@@ -479,7 +485,7 @@ npm publish
   注册表+单次广播，评审③）+ `persist-unix.ts`（rc marker 块）。先把 CLI 路径 `xx <name>` / `-s` 跑通（目前是桩）。
 - 2026-06-02（晚，**M1 完成**）：`types.ts` + `store.ts` + `presets.ts` 全部落地，`index.ts` 接通 `--list`。
   `tsc` 干净、`_smoke/m1.ts` 21 项断言全过、构建产物实跑 `--list` 正确。关键实现决策：`isOfficial` 用
-  **builtin 优先、`name==='官方'` 兜底**（放弃 plan 原稿的「env 为空」判定，理由见 §1.5①）；`getProviderState` 只返回**语义枚举**
+  **builtin 优先、`name==='官方' && env为空` 兜底**；`getProviderState` 只返回**语义枚举**
   不返回中文，翻译留给 i18n（贯彻评审①的数据/显示解耦）；presets 三级加载 + 坏 json 安静兜底。
   **下一步 M2 i18n**：建 `i18n/zh.json`+`en.json`+`T()`，把 `index.ts`/数据层里临时中文（如 `runList`/`stateLabel`）替换掉，
   并按评审①把官方档显示名做成 `T('provider.official')`。另：调查清楚 `socket closed` 报错**与 ccx 无关**（官方+第三方都复现 =

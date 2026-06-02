@@ -8,13 +8,15 @@
 ## 0. 一次性准备：npm 账号
 
 1. 去 https://www.npmjs.com/signup 注册一个账号（如果还没有）。记住用户名 / 邮箱 / 密码。
-2. **强烈建议开启 2FA**（npmjs.com → 头像 → Account → Two-Factor Authentication）。
-   开了 2FA 后，`npm publish` 时会让你输一个一次性验证码（OTP）。
+2. **准备发布凭据（必需）**：npm 发布要求满足以下二选一：
+   - 账号开启 **2FA**（npmjs.com → 头像 → Account → Two-Factor Authentication）。交互执行 `npm publish` 时输入一次性验证码（OTP）。
+   - 使用开启 **Bypass 2FA** 的 granular access token（适合非交互发布）。
+   首次手动发布推荐直接开启账号 2FA。
 3. 在终端登录（这一步**只有你能做**，我无法替你登录）：
    ```bash
    npm login
    ```
-   按提示输用户名、密码、邮箱；开了 2FA 还会让你输 OTP。
+   按 npm 提示在浏览器或终端完成登录；启用 2FA 后，发布时还会要求 OTP。
    验证是否登录成功：
    ```bash
    npm whoami        # 打印出你的用户名 = 已登录
@@ -52,8 +54,7 @@ npm pack --dry-run
 可选但推荐——**本机端到端验一遍编译产物**（不污染你的全局）：
 ```bash
 npm link                       # 把本地包链接成全局
-cc-x --version                 # 应打印 0.3.0   （注意：命令 xx 在你机器上被老 PS 函数占着，用 cc-x 这个名字验，
-                               #  或直接 node dist/index.js --version）
+node dist/index.js --version   # 应打印 0.3.0（包名是 cc-x，但注册的命令只有 xx）
 node dist/index.js --help      # 看帮助
 npm unlink -g cc-x             # 验完解除链接
 ```
@@ -67,7 +68,7 @@ npm publish
 ```
 
 - `cc-x` 是**无作用域的公开包**，首次发布**不需要** `--access public`（那是 `@scope/xxx` 作用域包才要的）。
-- 开了 2FA 会提示输 OTP，照输即可。
+- 账号 2FA 路径会提示输 OTP；非交互发布则使用开启 Bypass 2FA 的 granular token。
 - `package.json` 里配了 `prepublishOnly: "npm run build"`，所以 publish 前会**自动再构建一次**，双保险。
 
 发布成功后验证：
@@ -83,7 +84,8 @@ npm view cc-x                  # 能看到 0.3.0、文件列表等
 1. **真机装一遍**（最好新开一个干净终端）：
    ```bash
    npm install -g cc-x
-   # 在没有 PS xx 函数的环境里：xx --version；在你这台被 PS 占用的机器上：用 cc-x 或新终端测
+   # 在没有 PS xx 函数的环境里：xx --version
+   # 在你这台被 PS 函数占用的 Windows 机器上：cmd /c xx --version
    ```
 2. **打 git tag 并推送**（对齐版本号，便于追溯）：
    ```bash
@@ -117,7 +119,7 @@ git push origin main --tags
 - **版本不可变**：一旦 `cc-x@0.3.0` 发出去，就不能再用 `0.3.0` 这个号发不同内容。发错了只能：72 小时内 `npm unpublish cc-x@0.3.0`
   撤回，或 `npm deprecate cc-x@0.3.0 "说明"` 标记弃用，然后发 `0.3.1`。
 - **`xx` 命令在你这台机器上被老 PowerShell 函数挡着**（PS 函数优先级高于外部命令）——这是正常的，过渡期就该如此。
-  别人（没装 PS 版的）`npm i -g cc-x` 后敲 `xx` 会直接用到新版。你自己想用新版就用 `cc-x`/`node dist/index.js`，或
+  别人（没装 PS 版的）`npm i -g cc-x` 后敲 `xx` 会直接用到新版。你自己想用新版就用 `cmd /c xx` / `node dist/index.js`，或
   以后想切换时再从 `$PROFILE` 删掉老 `xx` 函数。
 - **macOS / Linux 尚未真机大规模验证**：「本次启用」全平台一致没问题；「设为默认」写 rc 文件的逻辑只跑过单测。
   首发后若有 mac/linux 用户，留意反馈。要更稳妥，可以先找一台 mac 实测「设为默认」再大力推。
@@ -131,6 +133,6 @@ git push origin main --tags
 |---|---|
 | 跑检查清单（typecheck/build/`npm pack --dry-run`）、修问题 | `npm login`（你的账号密码 / 2FA） |
 | 升版本号、改 README、打 tag 的命令 | 最终 `npm publish` 的点头与 OTP |
-| 发布后帮你验证 `npm view` / 装包测试 | 注册 npm 账号、开 2FA |
+| 发布后帮你验证 `npm view` / 装包测试 | 注册 npm 账号、开 2FA 或准备 granular token |
 
 准备好账号后，你可以先 `! npm login` 登录，然后跟我说“开始发布”，我就带着你把检查清单和发布跑一遍。

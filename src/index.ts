@@ -7,7 +7,7 @@
  * 进度：M1 数据层、M2 i18n、M3 两种启用、M4 主/动作菜单已接入。
  *       编辑/新增表单 + 各 picker + 密钥明文切换 + 语言切换为 M4 后续。
  *
- * 铁律：绝不写任何配置文件，只动 7 个受管环境变量。详见 CLAUDE.md / plan §2。
+ * 铁律：绝不写 Claude Code 配置文件；API 切换只动 7 个受管环境变量。详见 CLAUDE.md / plan §2。
  */
 import { createRequire } from 'node:module';
 import { Command, Option } from 'commander';

@@ -8,7 +8,7 @@
 import { createInterface } from 'node:readline';
 
 import { launchSession } from '../actions.js';
-import { isOfficial, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
+import { isOfficial, reconcileCurrent, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
 import type { Preset } from '../config/types.js';
 import { setDefault, type DefaultScope } from '../env/default.js';
 import { getLang, providerDisplayName, setLang, T } from '../i18n/index.js';
@@ -120,6 +120,7 @@ async function actionMenu(
       const ans = await readLine(`  ${T('action.deleteConfirm', providerDisplayName(p))}`);
       if (ans === 'y' || ans === 'Y') {
         store.providers = store.providers.filter((x) => x !== p);
+        reconcileCurrent(store);
         saveStore(paths, store);
         return;
       }

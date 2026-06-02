@@ -33,12 +33,13 @@
 
 ## 2. 铁律（违反即作废，来自 CLAUDE.md）
 
-**ccx 永远不写任何「配置文件」** —— 不写 `~/.claude/settings.json`、不碰 `~/.claude.json`（MCP 配置）。
-它 **只通过环境变量** 工作。这是工具存在的全部理由（不可能误伤用户的 MCP/插件/hooks）。
+**ccx 永远不写任何 Claude Code 配置文件** —— 不写 `~/.claude/settings.json`、不碰 `~/.claude.json`（MCP 配置）。
+它 **只通过环境变量切换 API**。这是工具存在的全部理由（不可能误伤用户的 MCP/插件/hooks）。
 
+- ccx 允许写自己的运行数据 `~/.cc-mini/providers.json`。
 - 「设为默认」在 Unix 上写 shell 启动文件（`.zshrc`/`.bashrc`）—— 这与现版 `install.ps1` 改 `$PROFILE`
   同性质，**不碰 `~/.claude`，不违反铁律**。这是 Unix 上唯一的「持久化用户环境变量」手段。
-- 任何写用户 config 文件的设计都要拒绝。拿不准时，选「让工具更简单」的那条路。
+- 任何写 Claude Code config 文件的设计都要拒绝。拿不准时，选「让工具更简单」的那条路。
 
 ### 受管的 7 个环境变量（只动这些，其它一律不碰）
 

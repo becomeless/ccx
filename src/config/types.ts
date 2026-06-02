@@ -25,7 +25,7 @@ export type Lang = 'zh' | 'en';
  *
  * `builtin`：稳定的内部标识，**与显示名解耦**（架构师评审①）。官方档 = `'official'`。
  * 这样界面切英文时，显示名可翻译成 "Official"，而代码判断仍认 `builtin`、数据主键 `name` 不变。
- * 老文件没有该字段：用 `name === '官方'` 兜底判定（见 store.ts `isOfficial`）。
+ * 老文件没有该字段：仅用 `name === '官方' && env 为空` 兜底判定（见 store.ts `isOfficial`）。
  */
 export interface Provider {
   name: string;

@@ -128,11 +128,12 @@ export function saveStore(paths: StorePaths, store: Store): void {
 
 /**
  * 是否官方档。优先认稳定标识 `builtin === 'official'`（评审①）；
- * 老文件没有 builtin 时退回认中文名 `'官方'`，与现版 PowerShell 行为一致。
+ * 老文件没有 builtin 时，仅将「中文名为官方 + env 为空」视为官方档。
+ * 这样旧数据仍兼容，而手动填了第三方地址/密钥的同名配置不会被误判为登录态。
  */
 export function isOfficial(p: Provider): boolean {
   if (p.builtin) return p.builtin === 'official';
-  return p.name === '官方';
+  return p.name === '官方' && Object.keys(p.env).length === 0;
 }
 
 /**
@@ -143,6 +144,12 @@ export function reconcileBuiltin(p: Provider): void {
   if (p.builtin === 'official' && Object.keys(p.env).length > 0) {
     delete p.builtin;
   }
+}
+
+/** 删除配置等操作后修正默认指向：优先剩余官方档，其次第一项；没有配置则置空。 */
+export function reconcileCurrent(store: Store): void {
+  if (store.providers.some((p) => p.name === store.current)) return;
+  store.current = (store.providers.find(isOfficial) ?? store.providers[0])?.name ?? '';
 }
 
 /** 取配置的 env map（即 provider.env，保证非空对象）。 */
