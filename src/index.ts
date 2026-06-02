@@ -10,7 +10,7 @@
  * 铁律：绝不写任何配置文件，只动 7 个受管环境变量。详见 CLAUDE.md / plan §2。
  */
 import { createRequire } from 'node:module';
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { launchSession, warnIfNoKey } from './actions.js';
 import { loadStore, resolveStorePaths, type Provider, type Store, type StorePaths } from './config/store.js';
@@ -46,8 +46,13 @@ function main(): void {
     .option('-s, --session', '本次启用：仅当前终端设环境变量并启动 claude（阅后即焚）')
     .option('-l, --list', '列出所有配置及状态')
     .option('--store-dir <dir>', '覆盖配置存储目录（测试用，默认 ~/.cc-mini）')
-    .option('--default-scope <scope>', '设为默认写到哪：user(持久) / process(不落盘 dry-run，测试用)', 'user')
-    .option('--lang <lang>', '本次界面语言：zh / en')
+    .addOption(
+      // [P1] 严格校验：拼错（如 proces）直接报错退出，不静默回退到危险的持久化路径。
+      new Option('--default-scope <scope>', '设为默认写到哪：user(持久) / process(不落盘 dry-run，测试用)')
+        .choices(['user', 'process'])
+        .default('user'),
+    )
+    .addOption(new Option('--lang <lang>', '本次界面语言：zh / en').choices(['zh', 'en']))
     .action(async (name: string | undefined, raw: GlobalOpts) => {
       await dispatch(name, normalizeOpts(raw));
     });

@@ -121,6 +121,16 @@ export function isOfficial(p: Provider): boolean {
   return p.name === '官方';
 }
 
+/**
+ * [P1] 编辑保存后修正身份：官方档（builtin='official' = 登录态、空 env）一旦被配成真实第三方
+ * （env 非空，有了 base/key 等），就清掉 builtin —— 否则会继续被当登录态、跳过缺密钥警告。
+ */
+export function reconcileBuiltin(p: Provider): void {
+  if (p.builtin === 'official' && Object.keys(p.env).length > 0) {
+    delete p.builtin;
+  }
+}
+
 /** 取配置的 env map（即 provider.env，保证非空对象）。 */
 export function getProviderEnvMap(p: Provider): Record<string, string> {
   return p.env ?? {};

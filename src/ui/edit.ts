@@ -7,6 +7,7 @@
 import {
   buildProviderEnv,
   getProviderEnvMap,
+  reconcileBuiltin,
   resolveUniqueName,
   type Provider,
   type Store,
@@ -146,6 +147,7 @@ export async function editForm(prov: Provider, store: Store, catalog: Preset[]):
         prov.name = resolveUniqueName(store, W.name.trim(), prov);
         prov.env = buildProviderEnv(fields);
         prov.note = W.note;
+        reconcileBuiltin(prov); // [P1] 官方档被配成第三方后清掉 builtin 身份
         return true;
       }
       case 'discard':
