@@ -409,7 +409,13 @@ npm publish
   - [x] 发布前回归：CLI 全路径（--version/--help/--list/`<name>` 设默认/未知名/拼错参数）× 中英各走一遍，全部正确；4 个 smoke 无回归。菜单交互此前已用户真机验证。
   - [ ] 可选（未做，follow-up）：编辑表单「1M 上下文」开关（§3.1.1）。
 - [ ] **M6 分发**：npm publish（包名 `cc-x`）；README 更新安装说明（`npm install -g cc-x`）；`npm update -g cc-x` 更新说明
-- [ ] **M7 文档**：更新 README.md / README.en.md（跨平台、语言切换、npm 装法）；CLAUDE.md 增补 npm 版说明；保留 xx.ps1 直到 npm 版稳定
+- [x] **M7 文档**（完成，2026-06-02）：
+  - [x] `README.md` / `README.en.md`：npm 全平台版为主（`npm i -g cc-x`）+ PowerShell 旧版备选；环境要求改 Node≥18；
+        CLI 用 `-s/--list/--lang/--help`；菜单加「🌐 语言切换」；「设为默认」改成跨平台（Win 注册表 / Unix rc 块）；卸载/数据位置同步；presets 用户目录覆盖。
+  - [x] `CLAUDE.md`（本地未跟踪）：补「两条并行 edition」说明 + npm 版构建/测试命令 + 指向 plan。
+  - [x] `docs/publish-guide.md`：M6 发布手把手教程（npm 账号/2FA、检查清单、`npm pack --dry-run`、publish、打 tag、后续发版、坑）。
+  - [x] 版本号去 alpha → `0.3.0`。`npm pack --dry-run` 预览干净（24 文件，无密钥/node_modules/src）。
+  - [ ] 可选 follow-up：正式测试框架替代 `_smoke/`；xx.ps1 保留至 npm 版稳定。
 
 ---
 
@@ -435,6 +441,10 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（**M7 文档完成 + 版本定 0.3.0**）：README 中英双版改成「npm 全平台版为主 + PS 旧版备选」（安装/环境/CLI/菜单语言项/
+  设为默认跨平台/卸载/数据位置/presets 用户覆盖全部同步）；CLAUDE.md 补双 edition 说明；新增 `docs/publish-guide.md`（M6 发布手把手）。
+  版本 `0.3.0-alpha.0`→`0.3.0`，`npm pack --dry-run` 包内容干净（24 文件）。**只剩 M6**：用户准备好 npm 账号后照 publish-guide 发布
+  （`npm login` + `npm publish` 需用户亲自做，对外不可逆）。
 - 2026-06-02（**M5 完成**）：help i18n（parse 前 `peekArg`+`peekStoreLang` 定语言，commander 全文案走 `T()`，`--help` 中英实测正确）
   + 发布前回归（CLI 全路径 ×中英 + 4 smoke 全过）。M0–M5 全部完成。**下一步 M6 分发**：npm publish `cc-x`（对外不可逆，需用户点头 + npm 登录）、
   README 更新 `npm i -g cc-x`。M6 前可考虑：真机 `npm link` 端到端验一遍、补正式测试框架替代 `_smoke/`。
