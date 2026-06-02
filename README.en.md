@@ -109,6 +109,12 @@ pwsh -ExecutionPolicy Bypass -File .\ccx\install.ps1   # registers an xx functio
 
 **Open a new terminal afterwards.**
 
+> **Migrating from the old PowerShell edition?** If you previously ran `install.ps1`, the old `xx`
+> function in your `$PROFILE` takes precedence over the npm command. After installing the npm edition,
+> delete the marker block from `# >>> xx >>>` through `# <<< xx <<<` in `$PROFILE`; if you also installed
+> the PSGallery module, run `Uninstall-Module ccx -AllVersions`. Open a new terminal and verify with `xx --version`.
+> Your existing `~/.cc-mini/providers.json` is reused, so profiles and keys are preserved.
+
 ## Quick start
 
 1. Open a new terminal and run `xx`. On first run it creates 4 default profiles in

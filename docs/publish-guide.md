@@ -1,7 +1,10 @@
-# M6 发布教程：把 `@cc-x/cc-x` 发到 npm（手把手）
+# npm 发布教程：把 `@cc-x/cc-x` 发到 npm
 
 > 这是给**你（becomeless）**的发布操作手册。npm 发布是**对外、且同一版本号不可重复**的动作，所以一步步来。
 > 全程在仓库根目录 `D:\work\AI\ccx` 操作。npm 包名 **`@cc-x/cc-x`**（作用域包），命令 `xx`，当前版本 `0.3.0`（见 `package.json`）。
+>
+> **发布状态**：`@cc-x/cc-x@0.3.0` 已于 2026-06-02 首发成功。本文继续作为后续版本的发版检查手册；
+> 首发专属步骤保留用于追溯。
 
 > ⚠️ **为什么是作用域包名 `@cc-x/cc-x`，而不是 `cc-x`？**
 > npm 有**相似名保护**：它会把名字里的连字符/点/下划线去掉再比对，`cc-x` 归一化后 = `ccx`，
@@ -37,10 +40,10 @@
 在仓库根目录依次跑：
 
 ```bash
-# 1) 这个作用域包名还没发过（首发应报 404）
-npm view @cc-x/cc-x version    # 报 404 = 没发过，可发；打印出版本号 = 已发过该版本，停下找我
+# 1) 查询当前线上版本；待发版本必须比它新
+npm view @cc-x/cc-x version    # 当前线上应为 0.3.0；若待发版本相同，先按 §4 升版本号
 
-# 2) 版本号对不对（应为 0.3.0）
+# 2) 确认待发版本号（必须高于线上版本）
 node -e "console.log(require('./package.json').version)"
 
 # 3) 干净构建 + 类型检查（确保 dist 是最新的）
@@ -128,9 +131,9 @@ git push origin main --tags
   没建组织就发会报 404 / 403。建组织见 §0。
 - **版本不可变**：一旦 `@cc-x/cc-x@0.3.0` 发出去，就不能再用 `0.3.0` 这个号发不同内容。发错了只能：72 小时内
   `npm unpublish @cc-x/cc-x@0.3.0` 撤回，或 `npm deprecate @cc-x/cc-x@0.3.0 "说明"` 标记弃用，然后发 `0.3.1`。
-- **`xx` 命令在你这台机器上被老 PowerShell 函数挡着**（PS 函数优先级高于外部命令）——这是正常的，过渡期就该如此。
-  别人（没装 PS 版的）`npm i -g @cc-x/cc-x` 后敲 `xx` 会直接用到新版。你自己想用新版就用 `cmd /c xx` / `node dist/index.js`，或
-  以后想切换时再从 `$PROFILE` 删掉老 `xx` 函数。
+- **Windows 旧版迁移**：如果 `$PROFILE` 里还有老 `xx` 函数，它会优先于 npm 命令。安装 npm 版后，从 `$PROFILE`
+  删掉 `# >>> xx >>>` 到 `# <<< xx <<<` 的标记块；如果还装过 PSGallery 模块，再执行
+  `Uninstall-Module ccx -AllVersions`。新开终端即可；原有 `~/.cc-mini/providers.json` 会继续沿用。
 - **macOS / Linux 尚未真机大规模验证**：「本次启用」全平台一致没问题；「设为默认」写 rc 文件的逻辑只跑过单测。
   首发后若有 mac/linux 用户，留意反馈。要更稳妥，可以先找一台 mac 实测「设为默认」再大力推。
 - **2FA OTP 过期**：publish 时 OTP 有时效，输慢了会失败，重新跑 `npm publish` 再输新码即可。
@@ -145,4 +148,4 @@ git push origin main --tags
 | 升版本号、改 README、打 tag 的命令 | 创建 npm 组织 `cc-x`、最终 `npm publish` 的点头与 OTP |
 | 发布后帮你验证 `npm view` / 装包测试 | 注册 npm 账号、开 2FA 或准备 granular token |
 
-准备好账号 + 组织后，你可以先 `! npm login` 登录，然后跟我说“开始发布”，我就带着你把检查清单和发布跑一遍。
+`@cc-x/cc-x@0.3.0` 已完成首发。以后发新版本，从 §4 升版本号开始，再走 §1 检查与 §2 发布。

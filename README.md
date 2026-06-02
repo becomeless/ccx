@@ -124,6 +124,11 @@ pwsh -ExecutionPolicy Bypass -File .\ccx\install.ps1   # 在 $PROFILE 注册 xx 
 
 **安装后请新开一个终端。**
 
+> **从 PowerShell 旧版迁移？** 如果你以前运行过 `install.ps1`，`$PROFILE` 里的旧 `xx` 函数会优先于
+> npm 命令。装好 npm 版后，请删除 `$PROFILE` 中 `# >>> xx >>>` 到 `# <<< xx <<<` 的标记块；
+> 如果还装过 PSGallery 模块，再执行 `Uninstall-Module ccx -AllVersions`。新开终端后运行 `xx --version` 验证。
+> 原有 `~/.cc-mini/providers.json` 会继续沿用，配置和密钥不会丢。
+
 ## 快速上手
 
 1. 新开终端，运行 `xx`。首次运行会在 `~/.cc-mini/providers.json` 生成 4 个默认配置
