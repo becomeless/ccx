@@ -13,7 +13,7 @@
 ## 0. 一句话目标
 
 把现有 PowerShell-only 的 `ccx`（命令 `xx`）重写为 **npm 全局包**（TypeScript），
-做到 **`npm install -g ccx` 一条命令跨平台安装**、Windows / macOS / Linux 同一套代码、
+做到 **`npm install -g cc-x` 一条命令跨平台安装**、Windows / macOS / Linux 同一套代码、
 并内建 **中英文切换（i18n）**。
 行为、数据格式、铁律与现版完全对齐，体验只能更好、不能更差。
 
@@ -26,8 +26,8 @@
 | 语言 | **TypeScript**（Node.js ≥18） | 与 Claude Code 同生态；npm 分发零摩擦；用户必有 Node.js |
 | 菜单 UI | **全自绘 ANSI 列表（raw keypress）+ cooked readline 文本输入**（不上 Ink，**也弃用 inquirer**） | M4 实测：inquirer 的 readline 与自绘菜单的 raw 模式抢 stdin、收不到按键。改回 PS 原版双机制：菜单/ASCII 字段走 raw keypress（同一套，验证可用），中文字段走 `node:readline` cooked 模式（兼容输入法，评审④）。同一时刻只跑一套，互不干扰。Ink/inquirer 均不采用 |
 | JSON | 原生 `JSON.parse`/`stringify` | `providers.json` / `presets.json` 格式**保持不变**，老用户零迁移 |
-| presets 兜底 | `src/presets-builtin.ts` 导出内置常量 | 等价于现 `$BuiltinPresetsJson`；编译进 JS，无需 `fs` 读取 |
-| i18n | `i18n/zh.json` + `i18n/en.json`（编译进包），逻辑层禁止硬编码中文 | 将来 Go 版可直接复用同一套 JSON |
+| presets 兜底 | **`src/config/presets.ts` 的 `BUILTIN_PRESETS` 常量** | 等价于现 `$BuiltinPresetsJson`；加载优先级 **用户 `~/.cc-mini/presets.json` > 包内 `presets.json` > 内置常量**（评审⑤） |
+| i18n | **单文件 `src/i18n/messages.ts`**（`key→{zh,en}`），逻辑层禁止硬编码中文 | 实际未用双 JSON（tsc 不拷 JSON 到 dist、import 断言跨版本坑）；一行 `JSON.stringify` 即可导出双语 JSON 供 Go 复用，详见 §5 偏离说明 |
 | 首版平台 | **Windows / macOS / Linux 同时** | npm 没有平台编译差异，天然全平台 |
 | 分发 | **npm registry**（`npm install -g cc-x`） | 一条命令装好，一条命令更新，零自建分发 |
 | 过渡 | 重写期间 `xx.ps1` **原样保留不动**，npm 版验证 OK 再主推 | 降低风险 |
@@ -64,7 +64,8 @@ plan 把"inherit stdio 天然解决"当红利——这对 macOS/Linux 成立，*
 
 **④ 🟡 文本输入用 readline/cooked 模式，别用 raw 逐字符读 —— 为兼容中文输入法。**
 真实代码特意分两套：密钥/模型用 raw 逐键（`Read-Value`），**中文名称/备注用 `Read-Host`**（注释明说"兼容输入法"）。
-raw 逐字符读中文会让输入法组词崩。`@inquirer/prompts` 的 `input` 天然是 cooked 模式 → 又一条「用 inquirer 不用 Ink」的理由。
+raw 逐字符读中文会让输入法组词崩。**（M4 落地修正：当时倾向 `@inquirer/prompts` 的 cooked 模式，但实测它与自绘菜单的
+raw 模式抢 stdin、文本输入收不到字；最终改用 `node:readline` 的 cooked 模式实现 `readText`，inquirer 一并弃用。见决策表 + §12。）**
 
 **⑤ 🟢 presets 支持用户覆盖：`~/.cc-mini/presets.json`（可选）> 内置常量兜底。**
 现版从脚本同目录读 presets.json、用户可直接改加供应商；npm 全局装后文件躲在 node_modules 里不好改。
@@ -160,7 +161,8 @@ Node 里统一用 `os.homedir()`。可被 `--store-dir` 覆盖（测试用）。
 - `urls`：可多个（如 MiMo 有「按量付费API」「TokenPlan」两个），多个时让用户选。
 - `models`：推荐的三档映射；`effort` 可选（DeepSeek=max，其余多为空）。
 - 选了某供应商 → 自动填 base url（多 url 弹选择）、三档模型、auth 字段、effort。
-- 运行时优先读包内 `presets.json`，缺失/解析失败则用内置常量兜底。
+- 运行时加载优先级（评审⑤，已落地于 `src/config/presets.ts`）：**用户 `~/.cc-mini/presets.json`（可选）> 包内 `presets.json` >
+  内置 `BUILTIN_PRESETS` 常量**；任一步文件缺失/解析失败都安静跌落下一步，绝不抛错中断启动。
 
 ---
 
@@ -215,15 +217,15 @@ Node 里统一用 `os.homedir()`。可被 `--store-dir` 覆盖（测试用）。
 > 即可导出双语 JSON。`T()` / `resolveLang` / `setLang` / `providerDisplayName` 在 `src/i18n/index.ts`；
 > CJK 宽度对齐在 `src/utils/display.ts`（基于 `string-width`）。下面的 JSON 示例仅作 key 命名参考。
 
-- `src/i18n/zh.json` + `src/i18n/en.json`：两个扁平 JSON，key 相同，值是对应语言文案。
-  ```json
-  // zh.json
-  { "menu.title": "ccx · Claude Code API 切换", "menu.exit": "退出", ... }
-  // en.json  
-  { "menu.title": "ccx · Claude Code API Switcher", "menu.exit": "Exit", ... }
+- **实际实现**：`src/i18n/messages.ts` 导出 `messages: Record<string, { zh, en }>`（单目录，key 命名如 `menu.exit`/`state.login`）。
+  ```ts
+  export const messages = {
+    'menu.exit': { zh: '退出', en: 'Exit' },
+    'list.default': { zh: '默认配置：{0}', en: 'Default: {0}' }, // 占位符 {0} {1}…
+  };
   ```
-- `src/i18n/index.ts`：`T(key: string, ...args: string[]): string` —— 查当前语言的 JSON，
-  缺 key 回退到 `zh` 或返回 key 本身（便于发现漏翻）。
+- `src/i18n/index.ts`：`T(key, ...args): string` —— 查当前语言文案、按序替换 `{0}`，
+  缺 key 返回 key 本身、缺当前语言回退 `zh`（便于发现漏翻）。另含 `setLang`/`getLang`/`resolveLang`/`providerDisplayName`。
 - 语言来源优先级：`--lang en` 参数 > `providers.json` 的 `lang` 字段 > 环境 `LC_ALL`/`LANG`（含 `zh` 视为中文）> 默认 `zh`。
 - 主菜单加一项「语言 / Language」即时切换并存盘（写回 `lang` 字段）。
 - **所有 user-facing 字符串都走 `T()`**；提交前 grep 确认逻辑层无裸中英文硬编码。
@@ -254,7 +256,8 @@ CLI 解析用 `commander`（npm 标准，自生成 help）。找不到 `<name>` 
 ## 7. 菜单结构（三级，逐项复刻现版交互）
 
 参考 `xx.ps1` 的 `Main-Menu` / `Action-Menu` / `Edit-Form` 及各 `Pick-*`。
-用 **Ink**（React）实现：每个菜单一个组件，通过 React 状态管理选中项记忆、toast 等。
+**实现（M4 已落地，非 Ink）**：用自绘 ANSI 列表 `ui/select.ts`（raw keypress）渲染各级菜单；选中记忆/toast 由
+`ui/menus.ts` 的循环 + 局部变量管理（不用 React/组件状态）。文本输入走 `ui/text.ts`（raw `readValue` ASCII / cooked `readText` 中文）。
 
 **一级 · 主菜单**（`MainMenu`）
 - 列出所有配置：`名称(对齐16)  (默认)(对齐8) [状态] — 备注`。
@@ -289,59 +292,56 @@ CLI 解析用 `commander`（npm 标准，自生成 help）。找不到 `<name>` 
   `resolveUniqueName`（同名被别条占用则追加 ` 2`/` 3`…，排除自身）；`buildProviderEnv`（按 KnownKeys 顺序、丢空值）。
 - **记住选中字段**：改完一项回到表单停在原项。
 
-**通用菜单交互**：↑↓ 导航（跳过空分隔行）、数字键直选、Enter 确认、q/Esc 取消、
-原地重绘不闪烁、非交互/无控制台时回退到「打印列表 + 读 stdin 序号」。
-Ink 的 `useInput` + 组件状态管理覆盖大部分；非交互回退用 `process.stdout.isTTY` 判断。
+**通用菜单交互**（由 `ui/select.ts` 统一实现）：↑↓ 导航（跳过空分隔行）、数字键直选、Enter 确认、q/Esc 取消、Ctrl+C 退出、
+Shift+↑↓·PgUp·PgDn 就地排序、原地重绘不闪烁、**进入即清屏（CLEAR_SCREEN）制造整页感**；
+非交互/无 TTY（判 `process.stdin.isTTY`）回退到「打印列表 + `readline` 读序号」。
 
 ---
 
-## 8. 建议的项目结构
+## 8. 项目结构（**as-built**，M0–M4 实际落地）
 
 ```
 ccx/
-  package.json                // name:"ccx", bin:{xx:"./dist/index.js"}, files:[...]
-  tsconfig.json               // target:ES2022, module:NodeNext, outDir:dist
+  package.json                // name:"cc-x", bin:{xx:"./dist/index.js"}, type:module, files:[dist,presets.json,…]
+  tsconfig.json               // target:ES2022, module/moduleResolution:NodeNext, strict, outDir:dist
   src/
-    index.ts                  // 入口：#!node → commander 解析 → 分派 CLI 或启动 Ink
-    cli.ts                    // CLI 模式（--list, xx <name>, --session 等，不启动 TUI）
+    index.ts                  // 入口：commander 解析 → CLI 路径(--list/xx <name>/-s) 或 openMenu(TUI)
+    actions.ts                // launchSession（CLI 与菜单共用，破 index↔menus 循环依赖）
     config/
-      store.ts                // providers.json 读写、默认生成
-      presets.ts              // presets.json 加载 + 内置常量兜底
+      types.ts                // KNOWN_KEYS / Provider(含 builtin) / Store(含 lang) / Preset 等类型
+      store.ts                // providers.json 读写、默认生成、isOfficial / buildProviderEnv / getProviderState
+                              //   / resolveUniqueName / reconcileBuiltin / peekStoreLang …
+      presets.ts              // BUILTIN_PRESETS 常量 + loadPresets（用户~/.cc-mini > 包内 > 内置）
     env/
-      session.ts              // 本次启用（全平台统一：spawn claude inherit stdio）
-      default.ts              // 设为默认（公共逻辑 + 平台分叉）
-      persist-windows.ts      // Windows：PowerShell 子进程写注册表 + 广播
-      persist-unix.ts         // Unix：shell rc 文件 marker 块读写
+      session.ts              // 本次启用：applyManagedEnv + sessionLaunch（spawn inherit；Win 经 cmd.exe 启 .cmd）
+      default.ts              // 设为默认：computeManagedVals + setDefault（平台分叉 + process dry-run + 失败不改 current）
+      persist-windows.ts      // powershell.exe 经 JSON payload 写 HKCU\Environment + 单次广播
+      persist-unix.ts         // shell rc marker 块 buildBlock/writeMarkerBlock + rcTargetFor（zsh/bash/fish/.profile）
     i18n/
-      zh.json                 // 中文文案（与未来 Go 版共享格式）
-      en.json                 // 英文文案（与未来 Go 版共享格式）
-      index.ts                // T()、Lang 检测、切换
-    ui/                       // Ink 组件：主菜单/动作菜单/表单/各 picker
-      app.tsx                 // Ink 入口 + 页面路由
-      main-menu.tsx           // 一级
-      action-menu.tsx         // 二级
-      edit-form.tsx           // 三级
-      pickers.tsx             // PickProvider / PickBaseUrl / PickAuth / PickEffort
-      components/
-        toast.tsx             // 绿色 toast 提示条
-        select-list.tsx       // 通用列表组件（highlight/数字/排序）
-        text-input.tsx        // 文本输入组件（掩码显示、空=不改、-=清空）
+      messages.ts             // key→{zh,en} 单目录（非双 JSON，见 §5）
+      index.ts                // T()/setLang/getLang/resolveLang/providerDisplayName
+    ui/
+      select.ts               // 自绘 ↑↓ 列表（raw keypress / 排序 / 原地重绘 / 进入清屏 / 非交互回退）
+      text.ts                 // readValue(raw 逐键, ASCII 字段) / readText(cooked readline, 中文字段)
+      pickers.ts              // pickProvider / pickProviderUrl / pickBaseUrl / pickAuth / pickEffort
+      edit.ts                 // 编辑表单（含密钥明文切换 §7）
+      menus.ts                // openMenu(主菜单) + actionMenu(动作菜单)
+      format.ts               // stateLabel / noteSuffix（--list 与菜单共用）
     utils/
-      display-width.ts        // CJK 宽度计算（基于 string-width）
-      shell.ts                // shell 检测（zsh/bash/fish）
-  presets.json                // 供应商目录（保留）
+      display.ts              // displayWidth / padDisplay / truncateDisplay（基于 string-width）
+      ansi.ts                 // 颜色 + 光标 + CLEAR_SCREEN（零依赖）
+  presets.json                // 供应商目录（随包发布）
   xx.ps1                      // 过渡期保留，勿动
-  docs/
-    go-rewrite-plan.md        // Go 二进制计划（保留，将来用）
-    npm-rewrite-plan.md       // 本文件
+  _smoke/                     // gitignored 冒烟脚本（m1–m3、m5fix），开发期验证用
+  docs/{go,npm}-rewrite-plan.md
 ```
 
-依赖（`npm install`）：
-- **`commander`** — CLI 参数解析（自生成 help）
-- **`ink`** + `react` — TUI 框架（组件化菜单）
-- **`chalk`** — 终端颜色
+依赖（运行时仅 3 个，**无 Ink/react/chalk/inquirer**）：
+- **`commander`** — CLI 参数解析（自生成 help、`.choices` 严格校验）
 - **`string-width`** — CJK 宽度计算
-- **`which`** — 跨平台查找可执行文件（Win 上找 `claude.cmd`）
+- **`which`** — 跨平台查找 claude 可执行（Win 上找 `claude.cmd`）
+- 颜色用自写 `utils/ansi.ts`（零依赖）；TUI 全自绘，不引框架。
+- devDeps：`typescript` / `tsx` / `@types/node` / `@types/which`。
 
 ---
 
@@ -401,8 +401,13 @@ npm publish
   - [x] `ui/pickers.ts`（供应商/地址/认证/effort）、`ui/edit.ts`（编辑表单 + **密钥明文切换 §7** + 名/供应商改动同步 current）、`ui/format.ts`、`ui/menus.ts`（主菜单排序/记忆选中/新增/**语言切换写回 store.lang**/退出；动作菜单 toast/删除二次确认）。
   - [x] 用户真机验证：输入(密钥/模型/`[1m]`保留)、中文输入法、整页切换、编辑回写、排序、语言切换、明文切换 全部正常。`tsc` 干净、三个 smoke 仍全过。
   - [x] 顺带：移除未用的 `@inquirer/prompts` 依赖（deps 仅剩 commander/string-width/which）。
-- [ ] **M5 CLI 收尾**：`--lang` / `--version` / `--help` / `--store-dir` / `--default-scope`，与现版行为对齐
-- [ ] **M6 分发**：npm publish；README 更新安装说明（`npm install -g ccx`）；`npm update -g ccx` 更新说明
+- [~] **M5 健壮性收口 + help i18n + 发布前回归**（参数本就已存在，重点不是「补参数」而是「收紧」）：
+  - [x] 3 个 P1 修复（2026-06-02）：①持久化失败/fish 不支持时不更新 `store.current`（default.ts）；②`--default-scope`/`--lang`
+        用 commander `.choices` 严格校验，拼错报错退出、不再静默回退危险路径；③编辑使官方档变第三方时清 `builtin`（store.ts `reconcileBuiltin`）。`_smoke/m5fix.ts` 全过 + CLI 实测。
+  - [ ] commander 的 `description`/option `--help` 文案接 i18n（parse 前预解析 `--lang`/`--store-dir` + `peekStoreLang` 定语言，避免为 --help 生成 store）。
+  - [ ] 发布前回归：CLI 全路径 + 菜单交互在中英两种语言各走一遍。
+  - [ ] 可选：编辑表单「1M 上下文」开关（§3.1.1 follow-up）。
+- [ ] **M6 分发**：npm publish（包名 `cc-x`）；README 更新安装说明（`npm install -g cc-x`）；`npm update -g cc-x` 更新说明
 - [ ] **M7 文档**：更新 README.md / README.en.md（跨平台、语言切换、npm 装法）；CLAUDE.md 增补 npm 版说明；保留 xx.ps1 直到 npm 版稳定
 
 ---
@@ -418,7 +423,9 @@ npm publish
 - **npm 包名**：`ccx` 已被占用，最终定为 **`cc-x`**（无作用域，命令名仍 `xx`）。见 §1。
 - **fish shell**：export 语法不同（`set -gx`），v1 暂不支持设为默认（给提示）。follow-up。
 - **macOS 实测**：rc 文件写入与 claude TTY 行为需在 mac 实机验证。npm link 后即可测，比 Go 交叉编译方便得多。
-- **Ink 学习曲线**：React + JSX 转译增加构建步骤（`tsx` 开发 / `tsc` 构建）。若 Ink 太重，降级方案：`@inquirer/prompts` + 自绘 ANSI 列表（与现版 PowerShell 同模式）。
+- ~~**Ink 学习曲线**~~（已作废）：M4 最终**既不用 Ink 也不用 inquirer**，全自绘 ANSI 列表（`ui/select.ts`）+ `node:readline`
+  cooked 文本输入。原因：inquirer 的 readline 与自绘菜单的 raw 模式抢 stdin。详见决策表 + §7 + §12。
+- **非交互 fallback 小限**：`ui/select.ts` 的非交互回退重复 `createInterface` 读管道会丢缓冲（真实 TTY 不受影响）。低优先 polish。
 - **Windows 注册表持久化**：当前方案走 PowerShell 子进程（Windows 上必然存在），干净无原生依赖。若未来想摘掉，可选 `node-ffi` 或 `.node` addon。
 - **版本号**：现版在 `xx.ps1` 的 `$script:Version` 与 `ccx.psd1` 的 ModuleVersion 两处。npm 版用 `package.json` 的 `version` 字段（npm 标准）。发版流程见 memory `ccx-release-workflow`。
 - **Node.js 版本**：Claude Code 要求 Node ≥18，`ccx` 跟随这个下限。
@@ -427,6 +434,11 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（**M5 起步：3 个 P1 修复 + 文档收口**，用户 review 指出）：
+  ① 修 3 个 P1（见 §10 M5）：持久化失败不更新 current、`--default-scope`/`--lang` 严格校验、官方档变第三方清 builtin。
+  ② **文档收口**：把被推翻的旧设计从「正文」里清掉（不再只靠补丁注记）——决策表 presets/i18n 行、§3.2 presets 优先级、
+  §5 i18n 文件结构、§7 菜单实现、§8 项目结构与依赖、§10 M5/M6、§11 风险，全部改成 as-built（cc-x / 全自绘非 Ink / messages.ts
+  单目录 / deps 仅 commander+string-width+which）。SoT 现与代码一致。**M5 剩余**：help i18n + 中英回归（+ 可选 1M 开关）。
 - 2026-06-02（深夜，**M4 TUI 完成**，用户真机验证全过）：编辑表单 + 各 picker + **密钥明文切换** + 新增 + **语言切换** 全落地。
   关键修正：① **弃用 inquirer**——它与自绘菜单的 raw 模式抢 stdin、文本输入收不到字；改回 PS 双机制（raw 逐键 readValue + cooked
   readline readText，后者兼容中文输入法）。② selectMenu 进入时 `CLEAR_SCREEN` 清屏归位，补上「整页切换」的页面感。
