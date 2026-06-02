@@ -413,8 +413,9 @@ npm publish
         description/argument/option/version/help 文案全走 `T()`。实测 `--help` 中英切换正确（commander 内建的 Usage/Options 段标题仍英文，标准做法，可接受）。
   - [x] 发布前回归：CLI 全路径（--version/--help/--list/`<name>` 设默认/未知名/拼错参数）× 中英各走一遍，全部正确；4 个 smoke 无回归。菜单交互此前已用户真机验证。
   - [ ] 可选（未做，follow-up）：编辑表单「1M 上下文」开关（§3.1.1）。
-- [ ] **M6 分发**：npm publish（作用域包名 `@cc-x/cc-x`，需先建 npm 组织 `cc-x` + publishConfig.access=public）；
+- [x] **M6 分发**：npm publish（作用域包名 `@cc-x/cc-x`，需先建 npm 组织 `cc-x` + publishConfig.access=public）；
       README 更新安装说明（`npm install -g @cc-x/cc-x`）；`npm update -g @cc-x/cc-x` 更新说明。详见 `docs/publish-guide.md`。
+      **已于 2026-06-02 首发成功**（`@cc-x/cc-x@0.3.0`，registry 可见，`v0.3.0` tag 已指向发布提交）。
 - [x] **M7 文档**（完成，2026-06-02）：
   - [x] `README.md` / `README.en.md`：npm 全平台版为主（`npm i -g cc-x`）+ PowerShell 旧版备选；环境要求改 Node≥18；
         CLI 用 `-s/--list/--lang/--help`；菜单加「🌐 语言切换」；「设为默认」改成跨平台（Win 注册表 / Unix rc 块）；卸载/数据位置同步；presets 用户目录覆盖。
@@ -454,6 +455,9 @@ npm publish
   作用域公开包首发必需）、package-lock、README 中英安装/包名、`docs/publish-guide.md`（新增建 npm 组织步骤 + 反转
   `--access` 说明 + 失效的可用性检查改对）、本 plan 决策/风险。**仓库名 cc-x 不动**（GitHub repo 叫 cc-x 没问题，只是 npm 包名加作用域）。
   **下一步**：用户已在 npmjs.com 建组织 `cc-x`（`becomeless` 被占）→ `npm publish`（首发，access 已由 publishConfig 配好）。
+- 2026-06-02（**M6 首发成功，里程碑收尾**）：`@cc-x/cc-x@0.3.0` 已 `npm publish` 成功并在 registry 可见
+  （24 文件、解包 ~110 kB、3 运行时依赖；README 正常渲染，仓库/作者指向 `becomeless`）。作用域改动提交 `824017d`
+  已 push 到 `origin/main`，`v0.3.0` tag 本地 + 远端均已移到 `824017d`（与发布内容一致）。安装路径：`npm i -g @cc-x/cc-x`，命令仍 `xx`。
 - 2026-06-02（**store 健壮性收口**）：`loadStore` 对不可读文件、JSON 语法损坏、顶层结构损坏和 provider 条目结构损坏统一抛
   `StoreError(read|parse|format)`；入口输出带路径的双语友好提示并退出 1，绝不静默重建/覆盖用户密钥。新增
   `_smoke/m6-store-robust.ts` 覆盖文件零改动、旧数据兼容和修好 JSON 后恢复。
