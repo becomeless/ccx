@@ -12,7 +12,7 @@
 RootModule = 'ccx.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.2.2'
+ModuleVersion = '0.2.3'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -107,7 +107,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'v0.2.2：修复「本次启用」启动 claude 报 “Input must be provided…” 的问题——v0.2.1 把菜单输出捕获进 toast 变量后，连带把 claude 的 stdout 拖进捕获管道，使其误判为 --print 非交互模式；改用 Start-Process -NoNewWindow 让 claude 直接挂真实控制台，并让「本次启用」分支显式不回传输出。'
+        ReleaseNotes = 'v0.2.3：菜单导航改为「分级返回 + 记住选中项」。① 进入某配置的动作菜单（二级页）后，「设为默认 / 编辑」做完都停留在二级页、不再弹回主菜单——设为默认就地显示绿条提示并在标题标注「（默认）」；② 编辑表单（三级页）保存或放弃都回到二级页、光标停在「编辑」；③ 主菜单与动作菜单都记住上次选中项，返回后光标停在刚操作的配置 / 动作上，不再跳回第一项。'
 
         # Prerelease string of this module
         # Prerelease = ''

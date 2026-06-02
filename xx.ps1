@@ -38,7 +38,7 @@ if (-not $StoreDir) { $StoreDir = Join-Path $env:USERPROFILE '.cc-mini' }
 $script:StoreDir     = $StoreDir
 $script:StorePath    = Join-Path $StoreDir 'providers.json'
 $script:DefaultScope = $DefaultScope
-$script:Version      = '0.2.2'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
+$script:Version      = '0.2.3'   # 发版时同步更新（与 ccx.psd1 的 ModuleVersion 保持一致）
 
 # 受管钥匙：工具完全拥有这些键，启用时按目标配置 设置/清除，其它变量一律不动。
 $script:KnownKeys = @(
@@ -604,27 +604,38 @@ function Action-Menu($store, $prov) {
         '删除',
         '返回'
     )
-    $note = $(if (Get-Note $prov) { "  — $(Get-Note $prov)" } else { '' })
-    $a = Select-Menu -Title "配置：$($prov.name)$note    [$(Show-State $prov)]" -Items $opts -Hint '↑↓ 选择 · Enter 确认 · q 返回'
-    switch ($a) {
-        0 { Session-Launch $store $prov; $null }  # 本次启用不产生 toast；显式 $null 避免输出被外层 $flash 捕获（否则会把 claude 的 stdout 拖进捕获管道，使其误判为 --print 非交互）
-        1 { return (Set-Default $store $prov) }   # 不再「回车继续」，把结果作为 toast 返回主菜单
-        2 {
-            $old = $prov.name
-            if (Edit-Form $prov $store) {
-                if ($store.current -eq $old) { $store.current = $prov.name }   # 改了供应商/名称时同步默认指向
-                Save-Store $store
+    # 二级页面：循环停留，做完一项后回到本菜单（光标停在刚做的那项动作上），
+    # 只有「返回 / q / Esc」或「删除已确认」才回到一级页面（此时配置已不存在）。
+    $sel   = 0       # 记住上次选中的动作，避免每次跳回第一项
+    $flash = $null   # 一次性提示条（如“已设为默认”）：显示一轮后清除
+    while ($true) {
+        $note = $(if (Get-Note $prov) { "  — $(Get-Note $prov)" } else { '' })
+        $dft  = $(if ($store.current -eq $prov.name) { '（默认）' } else { '' })
+        $sel = Select-Menu -Title "配置：$($prov.name)$dft$note    [$(Show-State $prov)]" `
+            -Items $opts -Start $sel -Status $flash -Hint '↑↓ 选择 · Enter 确认 · q 返回'
+        $flash = $null
+        switch ($sel) {
+            0 { Session-Launch $store $prov }         # 本次启用：启动 claude，退出后回到本菜单
+            1 { $flash = Set-Default $store $prov }   # 设为默认：留在二级页面，绿条提示（不回一级）
+            2 {
+                $old = $prov.name
+                if (Edit-Form $prov $store) {
+                    if ($store.current -eq $old) { $store.current = $prov.name }   # 改了供应商/名称时同步默认指向
+                    Save-Store $store
+                }
+                # 保存并返回 / 放弃修改 都回到这里，光标停在「编辑」上
             }
-        }
-        3 {
-            if ($prov.name -eq '官方') { Write-Host '  建议保留『官方』。' -ForegroundColor Yellow; Start-Sleep 1 }
-            $ans = Read-Host "  确认删除 [$($prov.name)]? (y/N)"
-            if ($ans -eq 'y' -or $ans -eq 'Y') {
-                $store.providers = @($store.providers | Where-Object { $_.name -ne $prov.name })
-                Save-Store $store
+            3 {
+                if ($prov.name -eq '官方') { Write-Host '  建议保留『官方』。' -ForegroundColor Yellow; Start-Sleep 1 }
+                $ans = Read-Host "  确认删除 [$($prov.name)]? (y/N)"
+                if ($ans -eq 'y' -or $ans -eq 'Y') {
+                    $store.providers = @($store.providers | Where-Object { $_.name -ne $prov.name })
+                    Save-Store $store
+                    return   # 配置已删，回到一级页面
+                }
             }
+            default { return }   # 返回 / q / Esc → 回到一级页面
         }
-        default { }
     }
 }
 
@@ -649,18 +660,23 @@ function Main-Menu($store) {
         Save-Store $store
         & $buildItems
     }
-    $flash = $null   # 一次性提示条（如“已设为默认”）：显示一轮后自动清除
+    $sel = 0   # 记住主菜单选中项：从二级页面返回后光标停在刚操作的配置上（不跳回第一项）
     while ($true) {
         $n = $store.providers.Count
         $items  = & $buildItems
         $colors = @{ ($n + 1) = 'Yellow' }   # 「＋ 新增配置」用亮黄色突出
         $sel = Select-Menu -Title "ccx v$($script:Version) · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）" `
-            -Items $items -Colors $colors -OnMove $onMove -MovableCount $n -Status $flash `
+            -Items $items -Colors $colors -OnMove $onMove -MovableCount $n -Start $sel `
             -Hint '↑↓ 选择 · Enter 进入 · Shift+↑↓（或 PgUp/PgDn）排序 · q 退出'
-        $flash = $null
         if ($sel -lt 0 -or $sel -eq $n + 3) { break }        # 退出 / Esc
-        elseif ($sel -eq $n + 1) { New-Provider $store }     # 新增
-        else { $flash = Action-Menu $store $store.providers[$sel] }   # 选中某配置（可能回传 toast）
+        elseif ($sel -eq $n + 1) {                           # 新增
+            New-Provider $store
+            if ($store.providers.Count -gt $n) { $sel = $store.providers.Count - 1 }   # 新建成功：光标落到新配置
+        }
+        else {                                               # 选中某配置 → 进二级页面
+            Action-Menu $store $store.providers[$sel]
+            if ($sel -ge $store.providers.Count) { $sel = [Math]::Max(0, $store.providers.Count - 1) }   # 删除后夹取范围
+        }
     }
 }
 
