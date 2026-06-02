@@ -401,12 +401,13 @@ npm publish
   - [x] `ui/pickers.ts`（供应商/地址/认证/effort）、`ui/edit.ts`（编辑表单 + **密钥明文切换 §7** + 名/供应商改动同步 current）、`ui/format.ts`、`ui/menus.ts`（主菜单排序/记忆选中/新增/**语言切换写回 store.lang**/退出；动作菜单 toast/删除二次确认）。
   - [x] 用户真机验证：输入(密钥/模型/`[1m]`保留)、中文输入法、整页切换、编辑回写、排序、语言切换、明文切换 全部正常。`tsc` 干净、三个 smoke 仍全过。
   - [x] 顺带：移除未用的 `@inquirer/prompts` 依赖（deps 仅剩 commander/string-width/which）。
-- [~] **M5 健壮性收口 + help i18n + 发布前回归**（参数本就已存在，重点不是「补参数」而是「收紧」）：
-  - [x] 3 个 P1 修复（2026-06-02）：①持久化失败/fish 不支持时不更新 `store.current`（default.ts）；②`--default-scope`/`--lang`
+- [x] **M5 健壮性收口 + help i18n + 发布前回归**（完成，2026-06-02；参数本就已存在，重点是「收紧」而非「补参数」）：
+  - [x] 3 个 P1 修复：①持久化失败/fish 不支持时不更新 `store.current`（default.ts）；②`--default-scope`/`--lang`
         用 commander `.choices` 严格校验，拼错报错退出、不再静默回退危险路径；③编辑使官方档变第三方时清 `builtin`（store.ts `reconcileBuiltin`）。`_smoke/m5fix.ts` 全过 + CLI 实测。
-  - [ ] commander 的 `description`/option `--help` 文案接 i18n（parse 前预解析 `--lang`/`--store-dir` + `peekStoreLang` 定语言，避免为 --help 生成 store）。
-  - [ ] 发布前回归：CLI 全路径 + 菜单交互在中英两种语言各走一遍。
-  - [ ] 可选：编辑表单「1M 上下文」开关（§3.1.1 follow-up）。
+  - [x] help i18n：parse 前用 `peekArg(--lang/--store-dir)` + `peekStoreLang`（只读不生成）定语言，commander 的
+        description/argument/option/version/help 文案全走 `T()`。实测 `--help` 中英切换正确（commander 内建的 Usage/Options 段标题仍英文，标准做法，可接受）。
+  - [x] 发布前回归：CLI 全路径（--version/--help/--list/`<name>` 设默认/未知名/拼错参数）× 中英各走一遍，全部正确；4 个 smoke 无回归。菜单交互此前已用户真机验证。
+  - [ ] 可选（未做，follow-up）：编辑表单「1M 上下文」开关（§3.1.1）。
 - [ ] **M6 分发**：npm publish（包名 `cc-x`）；README 更新安装说明（`npm install -g cc-x`）；`npm update -g cc-x` 更新说明
 - [ ] **M7 文档**：更新 README.md / README.en.md（跨平台、语言切换、npm 装法）；CLAUDE.md 增补 npm 版说明；保留 xx.ps1 直到 npm 版稳定
 
@@ -434,6 +435,9 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（**M5 完成**）：help i18n（parse 前 `peekArg`+`peekStoreLang` 定语言，commander 全文案走 `T()`，`--help` 中英实测正确）
+  + 发布前回归（CLI 全路径 ×中英 + 4 smoke 全过）。M0–M5 全部完成。**下一步 M6 分发**：npm publish `cc-x`（对外不可逆，需用户点头 + npm 登录）、
+  README 更新 `npm i -g cc-x`。M6 前可考虑：真机 `npm link` 端到端验一遍、补正式测试框架替代 `_smoke/`。
 - 2026-06-02（**M5 起步：3 个 P1 修复 + 文档收口**，用户 review 指出）：
   ① 修 3 个 P1（见 §10 M5）：持久化失败不更新 current、`--default-scope`/`--lang` 严格校验、官方档变第三方清 builtin。
   ② **文档收口**：把被推翻的旧设计从「正文」里清掉（不再只靠补丁注记）——决策表 presets/i18n 行、§3.2 presets 优先级、

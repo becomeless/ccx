@@ -106,6 +106,20 @@ export function loadStore(paths: StorePaths): Store {
   return store;
 }
 
+/**
+ * 只读探测 lang，**不生成文件**（用于 --help/--version 在 parse 前定语言，避免副作用）。
+ * 文件不存在/解析失败都返回 undefined。
+ */
+export function peekStoreLang(paths: StorePaths): Lang | undefined {
+  try {
+    if (!existsSync(paths.file)) return undefined;
+    const raw = JSON.parse(readFileSync(paths.file, 'utf-8')) as { lang?: unknown };
+    return raw.lang === 'en' ? 'en' : raw.lang === 'zh' ? 'zh' : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** 写配置：UTF-8 无 BOM、2 空格缩进（Node 默认 utf-8 不带 BOM，与现版一致）。 */
 export function saveStore(paths: StorePaths, store: Store): void {
   if (!existsSync(paths.dir)) mkdirSync(paths.dir, { recursive: true });

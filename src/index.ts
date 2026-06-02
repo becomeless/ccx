@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 import { Command, Option } from 'commander';
 
 import { launchSession, warnIfNoKey } from './actions.js';
-import { loadStore, resolveStorePaths, type Provider, type Store, type StorePaths } from './config/store.js';
+import { loadStore, peekStoreLang, resolveStorePaths, type Provider, type Store, type StorePaths } from './config/store.js';
 import { loadPresets } from './config/presets.js';
 import { setDefault } from './env/default.js';
 import { providerDisplayName, resolveLang, setLang, T } from './i18n/index.js';
@@ -35,24 +35,40 @@ interface GlobalOpts {
   lang?: Lang;
 }
 
-function main(): void {
-  const program = new Command();
+/** 从 argv 里轻量预读一个带值参数（`--name v` 或 `--name=v`），用于 parse 前定语言。 */
+function peekArg(argv: string[], name: string): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === name) return argv[i + 1];
+    if (a && a.startsWith(`${name}=`)) return a.slice(name.length + 1);
+  }
+  return undefined;
+}
 
+function main(): void {
+  // help/version 在 commander parse 时就打印，故须**在建命令前**定好语言：
+  // --lang > providers.json 的 lang（只读探测，不生成文件）> 环境 > 默认 zh。
+  const argv = process.argv;
+  const earlyLang = peekArg(argv, '--lang');
+  const lang = earlyLang === 'en' ? 'en' : earlyLang === 'zh' ? 'zh' : undefined;
+  const storeLang = peekStoreLang(resolveStorePaths(peekArg(argv, '--store-dir')));
+  setLang(resolveLang(lang, storeLang));
+
+  const program = new Command();
   program
     .name('xx')
-    .description('Claude Code API 切换器：在官方账号与第三方 Anthropic 兼容 API 间切换。')
-    .version(pkg.version, '-v, --version', '显示版本号')
-    .argument('[name]', '目标配置名；省略则打开交互菜单')
-    .option('-s, --session', '本次启用：仅当前终端设环境变量并启动 claude（阅后即焚）')
-    .option('-l, --list', '列出所有配置及状态')
-    .option('--store-dir <dir>', '覆盖配置存储目录（测试用，默认 ~/.cc-mini）')
+    .description(T('cli.desc'))
+    .helpOption('-h, --help', T('cli.opt.help'))
+    .version(pkg.version, '-v, --version', T('cli.opt.version'))
+    .argument('[name]', T('cli.arg.name'))
+    .option('-s, --session', T('cli.opt.session'))
+    .option('-l, --list', T('cli.opt.list'))
+    .option('--store-dir <dir>', T('cli.opt.storeDir'))
     .addOption(
       // [P1] 严格校验：拼错（如 proces）直接报错退出，不静默回退到危险的持久化路径。
-      new Option('--default-scope <scope>', '设为默认写到哪：user(持久) / process(不落盘 dry-run，测试用)')
-        .choices(['user', 'process'])
-        .default('user'),
+      new Option('--default-scope <scope>', T('cli.opt.defaultScope')).choices(['user', 'process']).default('user'),
     )
-    .addOption(new Option('--lang <lang>', '本次界面语言：zh / en').choices(['zh', 'en']))
+    .addOption(new Option('--lang <lang>', T('cli.opt.lang')).choices(['zh', 'en']))
     .action(async (name: string | undefined, raw: GlobalOpts) => {
       await dispatch(name, normalizeOpts(raw));
     });

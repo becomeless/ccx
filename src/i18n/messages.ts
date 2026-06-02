@@ -19,6 +19,20 @@ export const messages: Record<string, Msg> = {
     zh: 'Claude Code API 切换器：在官方账号与第三方 Anthropic 兼容 API 间切换。',
     en: 'Claude Code API switcher: switch between the official account and third-party Anthropic-compatible APIs.',
   },
+  'cli.arg.name': { zh: '目标配置名；省略则打开交互菜单', en: 'target profile name; omit to open the menu' },
+  'cli.opt.session': {
+    zh: '本次启用：仅当前终端设环境变量并启动 claude（阅后即焚）',
+    en: 'session: set env for this terminal only and launch claude',
+  },
+  'cli.opt.list': { zh: '列出所有配置及状态', en: 'list all profiles and their state' },
+  'cli.opt.storeDir': { zh: '覆盖配置存储目录（测试用，默认 ~/.cc-mini）', en: 'override store dir (testing; default ~/.cc-mini)' },
+  'cli.opt.defaultScope': {
+    zh: '设为默认写到哪：user(持久) / process(不落盘 dry-run，测试用)',
+    en: 'set-default scope: user (persist) / process (dry-run, testing)',
+  },
+  'cli.opt.lang': { zh: '本次界面语言：zh / en', en: 'UI language for this run: zh / en' },
+  'cli.opt.version': { zh: '显示版本号', en: 'show version' },
+  'cli.opt.help': { zh: '显示帮助', en: 'show help' },
 
   // —— 列表 / 状态 ——
   'list.default': { zh: '默认配置：{0}', en: 'Default: {0}' },
