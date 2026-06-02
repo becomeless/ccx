@@ -422,6 +422,12 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（深夜，**M4 进行中——菜单底座 + 主/动作菜单**）：新增 `utils/ansi.ts`(零依赖颜色+光标控制)、
+  `ui/select.ts`(自绘↑↓菜单：数字直选/Shift+↑↓·PgUp·PgDn 排序/原地重绘不闪/Ctrl+C/非交互回退)、`ui/format.ts`(stateLabel/noteSuffix 共用)、
+  `actions.ts`(launchSession 抽出，破 index↔menus 循环)、`ui/menus.ts`(主菜单：列表+排序+记忆选中；动作菜单：本次启用/设为默认 toast/删除二次确认)。
+  `index.ts` 菜单桩换成 `openMenu`、`parseAsync`。`tsc` 干净；非交互管道实测主菜单/动作菜单渲染与选择正确（交互 TTY 手感待用户在真实终端验）。
+  **M4 还差**：编辑表单(`ui/edit.ts`)+各 picker(供应商/地址/认证/effort)+**密钥明文切换**(§7)+新增配置+主菜单「语言切换」写回 store.lang。
+  **已知小限**：非交互 fallback 重复 createInterface 读管道会丢缓冲（真实 TTY 不受影响，列为后续 polish）。
 - 2026-06-02（深夜，**M3 两种启用模式完成**）：`env/{session,default,persist-windows,persist-unix}.ts` 全落地，`index.ts`
   的 session/default 桩换成真实实现。`_smoke/m3.ts` 全过，**含 Windows 真机验证**：假 `claude.cmd` 经 cmd.exe 启动 + 退出码
   透传（评审②）、`powershell.exe` 注册表写/删 + 广播（评审③，用 throwaway 键不碰真实配置）。端到端 `xx <name> --default-scope

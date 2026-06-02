@@ -13,3 +13,17 @@ export function padDisplay(s: string, width: number): string {
   const w = stringWidth(s);
   return w < width ? s + ' '.repeat(width - w) : s;
 }
+
+/** 按显示宽度截断到 `max`（防止超宽行在终端换行打乱原地重绘的行数计算）。 */
+export function truncateDisplay(s: string, max: number): string {
+  if (stringWidth(s) <= max) return s;
+  let w = 0;
+  let out = '';
+  for (const ch of s) {
+    const cw = stringWidth(ch);
+    if (w + cw > max) break;
+    out += ch;
+    w += cw;
+  }
+  return out;
+}

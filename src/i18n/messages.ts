@@ -30,6 +30,38 @@ export const messages: Record<string, Msg> = {
   // —— 供应商显示名（仅官方这种普通名词需要翻译；DeepSeek/GLM/MiMo 是专有名词不翻）——
   'provider.official': { zh: '官方', en: 'Official' },
 
+  // —— 菜单通用 ——
+  'menu.prompt': { zh: '输入序号 (q 取消): ', en: 'Enter number (q to cancel): ' },
+  'menu.mainTitle': {
+    zh: 'cc-x v{0} · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）',
+    en: 'cc-x v{0} · Claude Code API switcher     (default = used by bare `claude` in new terminals)',
+  },
+  'menu.mainHint': {
+    zh: '↑↓ 选择 · Enter 进入 · Shift+↑↓（或 PgUp/PgDn）排序 · q 退出',
+    en: '↑↓ move · Enter open · Shift+↑↓ (or PgUp/PgDn) reorder · q quit',
+  },
+  'menu.newProfile': { zh: '＋ 新增配置', en: '+ New profile' },
+  'menu.exit': { zh: '退出', en: 'Exit' },
+  'menu.default': { zh: '（默认）', en: '(default)' },
+  'menu.comingSoon': { zh: '（该功能下一步实现）', en: '(coming in the next step)' },
+
+  // —— 动作菜单 ——
+  'action.titlePrefix': { zh: '配置：', en: 'Profile: ' },
+  'action.session': {
+    zh: '本次启用    — 仅当前终端，立即启动 Claude（并行多终端推荐）',
+    en: 'Session    — this terminal only, launches Claude now (great for parallel terminals)',
+  },
+  'action.setDefault': {
+    zh: '设为默认    — 新终端裸敲 claude 默认用它（不影响运行中会话）',
+    en: 'Set default — used by bare claude in new terminals (running sessions unaffected)',
+  },
+  'action.edit': { zh: '编辑', en: 'Edit' },
+  'action.delete': { zh: '删除', en: 'Delete' },
+  'action.back': { zh: '返回', en: 'Back' },
+  'action.hint': { zh: '↑↓ 选择 · Enter 确认 · q 返回', en: '↑↓ move · Enter select · q back' },
+  'action.deleteConfirm': { zh: '确认删除 [{0}]? (y/N): ', en: 'Delete [{0}]? (y/N): ' },
+  'action.deleteOfficialWarn': { zh: '建议保留『官方』。', en: 'Keeping "Official" is recommended.' },
+
   // —— 错误 ——
   'error.notFound': { zh: '找不到配置：{0}', en: 'Profile not found: {0}' },
   'error.existing': { zh: '现有：{0}', en: 'Existing: {0}' },
