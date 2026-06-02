@@ -4,16 +4,13 @@
  *
  * 入口：解析 CLI 参数 → 分派到 CLI 路径（--list / xx <name> / -s）或交互菜单（TUI）。
  *
- * 进度：M1 数据层、M2 i18n、M3 两种启用、M4 主/动作菜单已接入。
- *       编辑/新增表单 + 各 picker + 密钥明文切换 + 语言切换为 M4 后续。
- *
  * 铁律：绝不写 Claude Code 配置文件；API 切换只动 7 个受管环境变量。详见 CLAUDE.md / plan §2。
  */
 import { createRequire } from 'node:module';
 import { Command, Option } from 'commander';
 
 import { launchSession, warnIfNoKey } from './actions.js';
-import { loadStore, peekStoreLang, resolveStorePaths, type Provider, type Store, type StorePaths } from './config/store.js';
+import { loadStore, peekStoreLang, resolveStorePaths, StoreError, type Provider, type Store, type StorePaths } from './config/store.js';
 import { loadPresets } from './config/presets.js';
 import { setDefault } from './env/default.js';
 import { providerDisplayName, resolveLang, setLang, T } from './i18n/index.js';
@@ -85,7 +82,21 @@ function normalizeOpts(raw: GlobalOpts): GlobalOpts {
 /** 按参数把请求分派到对应路径。 */
 async function dispatch(name: string | undefined, opts: GlobalOpts): Promise<void> {
   const paths = resolveStorePaths(opts.storeDir);
-  const store = loadStore(paths);
+  let store: Store;
+  try {
+    store = loadStore(paths);
+  } catch (e) {
+    if (e instanceof StoreError) {
+      // store 不可用，按 --lang/环境定语言（拿不到 store.lang）。绝不重建、不动用户数据。
+      setLang(resolveLang(opts.lang));
+      const head = e.kind === 'read' ? 'error.storeRead' : e.kind === 'format' ? 'error.storeFormat' : 'error.storeCorrupt';
+      console.error(`  ${T(head, e.file)}`);
+      console.error(`  ${T('error.storeCorruptHint')}`);
+      process.exitCode = 1;
+      return;
+    }
+    throw e;
+  }
   // 语言：--lang > providers.json lang > 环境 > 默认 zh。在产出任何文案前先定好。
   setLang(resolveLang(opts.lang, store.lang));
 

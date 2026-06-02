@@ -115,7 +115,7 @@ Install-Module ccx
 
 ```bash
 # npm 版
-git clone https://github.com/becomeless/ccx
+git clone https://github.com/becomeless/cc-x
 cd ccx && npm install && npm run build && npm link    # 之后 xx 可用
 
 # 或 PowerShell 旧版

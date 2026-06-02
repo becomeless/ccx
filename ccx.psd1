@@ -30,7 +30,7 @@ CompanyName = '删繁LESS'
 Copyright = '(c) 删繁LESS (becomeless). All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'A minimal, safe Claude Code API switcher (command: xx). Switches Claude Code between the official account and third-party Anthropic-compatible APIs purely via environment variables - it never writes any config file, so it cannot clobber your MCP / plugins / hooks.'
+Description = 'A minimal, safe Claude Code API switcher (command: xx). Switches Claude Code between the official account and third-party Anthropic-compatible APIs purely via environment variables - it never writes any Claude Code config file, so it cannot clobber your MCP / plugins / hooks.'
 
 # Minimum version of the PowerShell engine required by this module
 PowerShellVersion = '7.0'
@@ -98,10 +98,10 @@ PrivateData = @{
         Tags = 'claude','claude-code','anthropic','api','cli','llm','switcher'
 
         # A URL to the license for this module.
-        LicenseUri = 'https://github.com/becomeless/ccx/blob/main/LICENSE'
+        LicenseUri = 'https://github.com/becomeless/cc-x/blob/main/LICENSE'
 
         # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/becomeless/ccx'
+        ProjectUri = 'https://github.com/becomeless/cc-x'
 
         # A URL to an icon representing this module.
         # IconUri = ''

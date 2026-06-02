@@ -126,6 +126,13 @@ export const messages: Record<string, Msg> = {
   // —— 错误 ——
   'error.notFound': { zh: '找不到配置：{0}', en: 'Profile not found: {0}' },
   'error.existing': { zh: '现有：{0}', en: 'Existing: {0}' },
+  'error.storeRead': { zh: '配置文件读取失败：{0}', en: 'Failed to read config file: {0}' },
+  'error.storeCorrupt': { zh: '配置文件解析失败（JSON 语法错误）：{0}', en: 'Failed to parse config file (invalid JSON): {0}' },
+  'error.storeFormat': { zh: '配置文件结构不正确（顶层须为对象、providers 须为数组且条目结构合法）：{0}', en: 'Config file has invalid structure (top-level must be an object, providers must be an array with valid profile entries): {0}' },
+  'error.storeCorruptHint': {
+    zh: '为避免误删，未对它做任何改动。请修复后重试；或删除该文件以重新生成默认配置（会丢失已填的密钥）。',
+    en: 'Left untouched to avoid data loss. Fix it and retry; or delete the file to regenerate defaults (loses any saved keys).',
+  },
 
   // —— 本次启用（session）——
   'session.noKey': { zh: '⚠ 配置 [{0}] 还没填密钥。', en: '⚠ Profile [{0}] has no key set.' },

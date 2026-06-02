@@ -71,39 +71,83 @@ export function defaultStore(): Store {
   };
 }
 
-/** 把任意解析结果规整为合法 Store（容错旧文件：缺 lang / 缺 builtin / env 非对象都不报错）。 */
-function normalizeStore(raw: unknown): Store {
-  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const providersRaw = Array.isArray(obj.providers) ? obj.providers : [];
-  const providers: Provider[] = providersRaw.map((p) => normalizeProvider(p));
+/**
+ * 把任意解析结果规整为合法 Store。
+ *
+ * 字段级**宽松容错**（缺 lang / 缺 note / 缺 builtin / 缺 env 都不报错），保证老用户文件零迁移；
+ * 但结构级**严格校验**：顶层必须是对象、`providers` 必须是数组、每个配置的 name/env 结构必须合法
+ * —— 否则抛 StoreError('format')。
+ * 这是为了堵住「语法合法但结构损坏的 JSON 被静默规整成空 providers、用户一保存就覆盖丢数据」的坑（[P1]）。
+ */
+function normalizeStore(raw: unknown, file: string): Store {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new StoreError('format', file);
+  const obj = raw as Record<string, unknown>;
+  if (!Array.isArray(obj.providers)) throw new StoreError('format', file);
+  const providers: Provider[] = obj.providers.map((p) => normalizeProvider(p, file));
   const lang: Lang | undefined = obj.lang === 'en' ? 'en' : obj.lang === 'zh' ? 'zh' : undefined;
   const current = typeof obj.current === 'string' ? obj.current : (providers[0]?.name ?? '');
   return { current, ...(lang ? { lang } : {}), providers };
 }
 
-function normalizeProvider(raw: unknown): Provider {
-  const p = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const name = typeof p.name === 'string' ? p.name : '';
+function normalizeProvider(raw: unknown, file: string): Provider {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new StoreError('format', file);
+  const p = raw as Record<string, unknown>;
+  if (typeof p.name !== 'string') throw new StoreError('format', file);
+  if (p.note !== undefined && typeof p.note !== 'string') throw new StoreError('format', file);
+  if (p.builtin !== undefined && typeof p.builtin !== 'string') throw new StoreError('format', file);
+  if (p.env !== undefined && (!p.env || typeof p.env !== 'object' || Array.isArray(p.env))) {
+    throw new StoreError('format', file);
+  }
+  const name = p.name;
   const note = typeof p.note === 'string' ? p.note : '';
   const builtin = typeof p.builtin === 'string' ? p.builtin : undefined;
   const env: Record<string, string> = {};
-  if (p.env && typeof p.env === 'object') {
+  if (p.env) {
     for (const [k, v] of Object.entries(p.env as Record<string, unknown>)) {
-      if (typeof v === 'string') env[k] = v;
+      if (typeof v !== 'string') throw new StoreError('format', file);
+      env[k] = v;
     }
   }
   return { name, note, ...(builtin ? { builtin } : {}), env };
 }
 
-/** 读配置；文件不存在则生成默认并落盘后返回。 */
-export function loadStore(paths: StorePaths): Store {
-  if (existsSync(paths.file)) {
-    const text = readFileSync(paths.file, 'utf-8');
-    return normalizeStore(JSON.parse(text));
+/**
+ * 配置文件存在但不可用时抛出。调用方据此给出友好提示并退出，
+ * **绝不**静默重建/覆盖——那会清掉用户的明文密钥（违背「不碰用户数据」初心）。
+ *   - `read`  ：读文件失败（权限/磁盘/同名目录 EISDIR …）[P2]
+ *   - `parse` ：JSON 语法损坏 [上一轮已修]
+ *   - `format`：JSON 语法合法但结构损坏（顶层非对象 / providers 非数组）[P1]
+ */
+export type StoreErrorKind = 'read' | 'parse' | 'format';
+
+export class StoreError extends Error {
+  constructor(
+    public readonly kind: StoreErrorKind,
+    public readonly file: string,
+  ) {
+    super(`store ${kind} error: ${file}`);
+    this.name = 'StoreError';
   }
-  const store = defaultStore();
-  saveStore(paths, store);
-  return store;
+}
+
+/** 读配置；文件不存在则生成默认并落盘后返回；文件不可用则抛 StoreError（绝不覆盖）。 */
+export function loadStore(paths: StorePaths): Store {
+  let text: string;
+  try {
+    text = readFileSync(paths.file, 'utf-8'); // [P2] 权限/磁盘/EISDIR 等
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new StoreError('read', paths.file);
+    const store = defaultStore();
+    saveStore(paths, store);
+    return store;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new StoreError('parse', paths.file);
+  }
+  return normalizeStore(parsed, paths.file); // [P1] 结构校验在内部，失败抛 'format'
 }
 
 /**

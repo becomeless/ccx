@@ -32,7 +32,7 @@
 | 分发 | **npm registry**（`npm install -g cc-x`） | 一条命令装好，一条命令更新，零自建分发 |
 | 过渡 | 重写期间 `xx.ps1` **原样保留不动**，npm 版验证 OK 再主推 | 降低风险 |
 
-仓库：`github.com/becomeless/ccx`（origin，HTTPS）。`gh` CLI 可用（v2.90）。
+仓库：`github.com/becomeless/cc-x`（origin，HTTPS）。`gh` CLI 可用（v2.90）。
 
 > **npm 包名（已定）**：`ccx` 已被占用（npm 上已有 1.0.0），最终包名定为 **`cc-x`**（无作用域、最接近
 >   ccx 品牌、2026-06-02 已确认可用）。**命令名仍是 `xx`**（`package.json` 的 `bin: { "xx": ... }`），不受包名影响。
@@ -444,6 +444,11 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（**store 健壮性收口**）：`loadStore` 对不可读文件、JSON 语法损坏、顶层结构损坏和 provider 条目结构损坏统一抛
+  `StoreError(read|parse|format)`；入口输出带路径的双语友好提示并退出 1，绝不静默重建/覆盖用户密钥。新增
+  `_smoke/m6-store-robust.ts` 覆盖文件零改动、旧数据兼容和修好 JSON 后恢复。
+- 2026-06-02（**GitHub 仓库改名**）：仓库 slug 从 `becomeless/ccx` 改为 `becomeless/cc-x`，与 npm 包名统一；
+  同步更新 npm 元数据、README clone 地址、PSGallery 元数据、Go 版计划中的未来 `go.mod` 示例及本地 `origin`。
 - 2026-06-02（**M6 发布前复核收口**）：补齐官方档降级边界（旧数据名称兜底收紧为 `name==='官方' && env为空`）；
   删除当前默认配置后回退到剩余官方档/第一项；`package.json bin.xx` 去掉 npm 会自动清理的 `./` 前缀；发布教程修正
   `cc-x --version` 命令名混淆、把 2FA / bypass-2FA granular token 写成发布必备条件；铁律统一精确为「不写 Claude Code 配置文件」。

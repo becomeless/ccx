@@ -12,10 +12,10 @@
     "deepseek",
     "glm"
   ],
-  "homepage": "https://github.com/becomeless/ccx#readme",
+  "homepage": "https://github.com/becomeless/cc-x#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/becomeless/ccx.git"
+    "url": "git+https://github.com/becomeless/cc-x.git"
   },
   "license": "MIT",
   "author": "becomeless",

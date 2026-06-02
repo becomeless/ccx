@@ -6,7 +6,7 @@
  * - 可选就地排序：传 onMove + movableCount，Shift+↑↓ 或 PgUp/PgDn 在顶部前 N 项内移动选中项。
  * - 非交互/无 TTY 时回退到「打印列表 + 读一行序号」。
  *
- * 注：文本输入（含中文）不在这里——那走 ui/text.ts 的 inquirer（cooked 模式，兼容输入法，评审④）。
+ * 注：文本输入（含中文）不在这里——那走 ui/text.ts（raw readValue / cooked readText，后者兼容输入法，评审④）。
  */
 import { createInterface, emitKeypressEvents, type Key } from 'node:readline';
 
