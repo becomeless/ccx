@@ -1,23 +1,23 @@
-# M6 发布教程：把 `@becomeless/cc-x` 发到 npm（手把手）
+# M6 发布教程：把 `@cc-x/cc-x` 发到 npm（手把手）
 
 > 这是给**你（becomeless）**的发布操作手册。npm 发布是**对外、且同一版本号不可重复**的动作，所以一步步来。
-> 全程在仓库根目录 `D:\work\AI\ccx` 操作。npm 包名 **`@becomeless/cc-x`**（作用域包），命令 `xx`，当前版本 `0.3.0`（见 `package.json`）。
+> 全程在仓库根目录 `D:\work\AI\ccx` 操作。npm 包名 **`@cc-x/cc-x`**（作用域包），命令 `xx`，当前版本 `0.3.0`（见 `package.json`）。
 
-> ⚠️ **为什么是作用域包名 `@becomeless/cc-x`，而不是 `cc-x`？**
+> ⚠️ **为什么是作用域包名 `@cc-x/cc-x`，而不是 `cc-x`？**
 > npm 有**相似名保护**：它会把名字里的连字符/点/下划线去掉再比对，`cc-x` 归一化后 = `ccx`，
 > 和已存在的 `ccx` 包（1.0.0）冲突，**无作用域的 `cc-x` 会被 npm 以 E403「too similar to existing package ccx」拒绝**。
 > （`npm view cc-x` 报 404 只说明没有字面叫 cc-x 的包，**测不出相似名规则**——这是当初的误判。）
-> 作用域包（`@scope/name`）豁免相似名规则，所以最终用 **`@becomeless/cc-x`**，作用域与 GitHub 品牌一致。命令名仍是 `xx`，不受影响。
+> 作用域包（`@scope/name`）豁免相似名规则，所以最终用 **`@cc-x/cc-x`**。作用域 `@cc-x` 取自已建好的 npm 组织（`becomeless` 组织名已被占用，故用 `cc-x`；GitHub 仓库仍是 `becomeless/cc-x`）。命令名仍是 `xx`，不受影响。
 
 ---
 
 ## 0. 一次性准备：npm 账号 + 组织
 
 1. 去 https://www.npmjs.com/signup 注册账号（如果还没有）。记住用户名 / 邮箱 / 密码。
-2. **创建免费组织 `becomeless`**（作用域 `@becomeless` 的来源）：
-   - https://www.npmjs.com/org/create → 组织名填 `becomeless` → 选 **Free / public** 套餐（公开包免费）。
-   - 若 `becomeless` 这个组织名已被占，换一个可用的，并回来告诉我——我同步改 `package.json` 的包名和文档。
-   - 你当前登录的 npm 账号是 `shanfanless`，创建组织后该账号会成为 `@becomeless` 的 owner，可以往里发包。
+2. **创建免费组织 `cc-x`**（作用域 `@cc-x` 的来源）：
+   - https://www.npmjs.com/org/create → 组织名填 `cc-x` → 选 **Free / public** 套餐（公开包免费）。
+   - 注：`becomeless` 组织名已被占用，故改用 `cc-x`（作用域 `@cc-x`）；GitHub 仓库仍是 `becomeless/cc-x`，不受影响。
+   - 你当前登录的 npm 账号是 `shanfanless`，创建组织后该账号会成为 `@cc-x` 的 owner，可以往里发包。**此组织已创建完成。**
 3. **准备发布凭据**：npm 发布要求满足以下二选一：
    - 账号开启 **2FA**（npmjs.com → 头像 → Account → Two-Factor Authentication）。交互执行 `npm publish` 时输入一次性验证码（OTP）。
    - 使用开启 **Bypass 2FA** 的 granular access token（适合非交互发布）。
@@ -38,7 +38,7 @@
 
 ```bash
 # 1) 这个作用域包名还没发过（首发应报 404）
-npm view @becomeless/cc-x version    # 报 404 = 没发过，可发；打印出版本号 = 已发过该版本，停下找我
+npm view @cc-x/cc-x version    # 报 404 = 没发过，可发；打印出版本号 = 已发过该版本，停下找我
 
 # 2) 版本号对不对（应为 0.3.0）
 node -e "console.log(require('./package.json').version)"
@@ -60,9 +60,9 @@ npm pack --dry-run
 可选但推荐——**本机端到端验一遍编译产物**（不污染你的全局）：
 ```bash
 npm link                              # 把本地包链接成全局
-node dist/index.js --version          # 应打印 0.3.0（包名是 @becomeless/cc-x，但注册的命令只有 xx）
+node dist/index.js --version          # 应打印 0.3.0（包名是 @cc-x/cc-x，但注册的命令只有 xx）
 node dist/index.js --help             # 看帮助
-npm unlink -g @becomeless/cc-x        # 验完解除链接
+npm unlink -g @cc-x/cc-x        # 验完解除链接
 ```
 
 ---
@@ -81,9 +81,9 @@ npm publish
 
 发布成功后验证：
 ```bash
-npm view @becomeless/cc-x             # 能看到 0.3.0、文件列表等
+npm view @cc-x/cc-x             # 能看到 0.3.0、文件列表等
 ```
-也可以去 https://www.npmjs.com/package/@becomeless/cc-x 看看页面（README 会渲染在那里）。
+也可以去 https://www.npmjs.com/package/@cc-x/cc-x 看看页面（README 会渲染在那里）。
 
 ---
 
@@ -91,13 +91,13 @@ npm view @becomeless/cc-x             # 能看到 0.3.0、文件列表等
 
 1. **真机装一遍**（最好新开一个干净终端）：
    ```bash
-   npm install -g @becomeless/cc-x
+   npm install -g @cc-x/cc-x
    # 在没有 PS xx 函数的环境里：xx --version
    # 在你这台被 PS 函数占用的 Windows 机器上：cmd /c xx --version
    ```
 2. **打 git tag 并推送**（对齐版本号，便于追溯）：
    ```bash
-   git tag -a v0.3.0 -m "npm 版 @becomeless/cc-x 0.3.0 首发"
+   git tag -a v0.3.0 -m "npm 版 @cc-x/cc-x 0.3.0 首发"
    git push origin main --tags
    ```
    > ⚠️ 顺序建议：**先 `npm publish` 成功，再 `git push`**（或同时），避免 README 里写着安装命令
@@ -124,12 +124,12 @@ git push origin main --tags
 
 ## 5. 几个要知道的“坑 / 规则”
 
-- **作用域 = 组织/用户名**：`@becomeless/cc-x` 的 `@becomeless` 必须是你拥有的 npm 组织或用户名。
+- **作用域 = 组织/用户名**：`@cc-x/cc-x` 的 `@cc-x` 必须是你拥有的 npm 组织或用户名。
   没建组织就发会报 404 / 403。建组织见 §0。
-- **版本不可变**：一旦 `@becomeless/cc-x@0.3.0` 发出去，就不能再用 `0.3.0` 这个号发不同内容。发错了只能：72 小时内
-  `npm unpublish @becomeless/cc-x@0.3.0` 撤回，或 `npm deprecate @becomeless/cc-x@0.3.0 "说明"` 标记弃用，然后发 `0.3.1`。
+- **版本不可变**：一旦 `@cc-x/cc-x@0.3.0` 发出去，就不能再用 `0.3.0` 这个号发不同内容。发错了只能：72 小时内
+  `npm unpublish @cc-x/cc-x@0.3.0` 撤回，或 `npm deprecate @cc-x/cc-x@0.3.0 "说明"` 标记弃用，然后发 `0.3.1`。
 - **`xx` 命令在你这台机器上被老 PowerShell 函数挡着**（PS 函数优先级高于外部命令）——这是正常的，过渡期就该如此。
-  别人（没装 PS 版的）`npm i -g @becomeless/cc-x` 后敲 `xx` 会直接用到新版。你自己想用新版就用 `cmd /c xx` / `node dist/index.js`，或
+  别人（没装 PS 版的）`npm i -g @cc-x/cc-x` 后敲 `xx` 会直接用到新版。你自己想用新版就用 `cmd /c xx` / `node dist/index.js`，或
   以后想切换时再从 `$PROFILE` 删掉老 `xx` 函数。
 - **macOS / Linux 尚未真机大规模验证**：「本次启用」全平台一致没问题；「设为默认」写 rc 文件的逻辑只跑过单测。
   首发后若有 mac/linux 用户，留意反馈。要更稳妥，可以先找一台 mac 实测「设为默认」再大力推。
@@ -142,7 +142,7 @@ git push origin main --tags
 | 我能做 | 你来做（我做不了） |
 |---|---|
 | 跑检查清单（typecheck/build/`npm pack --dry-run`）、修问题、改包名/文档 | `npm login`（你的账号密码 / 2FA） |
-| 升版本号、改 README、打 tag 的命令 | 创建 npm 组织 `becomeless`、最终 `npm publish` 的点头与 OTP |
+| 升版本号、改 README、打 tag 的命令 | 创建 npm 组织 `cc-x`、最终 `npm publish` 的点头与 OTP |
 | 发布后帮你验证 `npm view` / 装包测试 | 注册 npm 账号、开 2FA 或准备 granular token |
 
 准备好账号 + 组织后，你可以先 `! npm login` 登录，然后跟我说“开始发布”，我就带着你把检查清单和发布跑一遍。

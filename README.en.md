@@ -11,8 +11,8 @@ purely through environment variables, so it is **physically incapable of clobber
 plugins, or hooks** — and it lets **multiple terminals each run a different API at the
 same time, without interfering with one another**.
 
-> 🌍 **Cross-platform:** one `npm install -g @becomeless/cc-x` installs it on **Windows / macOS / Linux**
-> (the command is still `xx`; the npm package is `@becomeless/cc-x`), with a built-in **English / Chinese
+> 🌍 **Cross-platform:** one `npm install -g @cc-x/cc-x` installs it on **Windows / macOS / Linux**
+> (the command is still `xx`; the npm package is `@cc-x/cc-x`), with a built-in **English / Chinese
 > UI toggle**. A PowerShell edition is still available on Windows (see [Install](#install)).
 
 ---
@@ -81,11 +81,11 @@ place, or prefer an all-in-one tool.
 **Option 1: npm (recommended, cross-platform)**
 
 ```bash
-npm install -g @becomeless/cc-x
+npm install -g @cc-x/cc-x
 ```
 
-Then type `xx` in any terminal. Update with `npm update -g @becomeless/cc-x`; remove with
-`npm uninstall -g @becomeless/cc-x`. (The npm package is `@becomeless/cc-x`; the terminal command is `xx`.)
+Then type `xx` in any terminal. Update with `npm update -g @cc-x/cc-x`; remove with
+`npm uninstall -g @cc-x/cc-x`. (The npm package is `@cc-x/cc-x`; the terminal command is `xx`.)
 
 **Option 2: PowerShell Gallery (Windows, legacy)**
 
@@ -312,7 +312,7 @@ not support it. DeepSeek recommends `max`; leave others empty.
 
 - **Clear env vars first**: run `xx` → Set as default → 官方 to clear all managed variables.
 - Remove the tool itself:
-  - npm edition → `npm uninstall -g @becomeless/cc-x`;
+  - npm edition → `npm uninstall -g @cc-x/cc-x`;
   - PowerShell edition → `Uninstall-Module ccx`, or delete the `# >>> xx >>>` … `# <<< xx <<<`
     block from your `$PROFILE`;
   - on macOS / Linux, also remove the `# >>> xx >>>` marker block from your shell startup file
