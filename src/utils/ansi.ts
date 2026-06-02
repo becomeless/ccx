@@ -47,3 +47,6 @@ export const CLEAR_DOWN = '\x1b[0J';
 
 /** 回到行首。 */
 export const CR = '\r';
+
+/** 清屏 + 清回滚 + 光标归位（等价于 PowerShell 的 Clear-Host，制造「整页」感）。 */
+export const CLEAR_SCREEN = '\x1b[2J\x1b[3J\x1b[H';

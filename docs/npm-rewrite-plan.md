@@ -24,7 +24,7 @@
 | 项 | 决策 | 理由 |
 |---|---|---|
 | 语言 | **TypeScript**（Node.js ≥18） | 与 Claude Code 同生态；npm 分发零摩擦；用户必有 Node.js |
-| 菜单 UI | **`@inquirer/prompts` + 自绘 ANSI 列表**（不上 Ink） | 这工具就是几级菜单+文本输入，Ink 的 React/JSX 转译是过度工程；inquirer 走 readline cooked 模式，**天然兼容中文输入法**（见评审④）。Ink 列为不采用方案 |
+| 菜单 UI | **全自绘 ANSI 列表（raw keypress）+ cooked readline 文本输入**（不上 Ink，**也弃用 inquirer**） | M4 实测：inquirer 的 readline 与自绘菜单的 raw 模式抢 stdin、收不到按键。改回 PS 原版双机制：菜单/ASCII 字段走 raw keypress（同一套，验证可用），中文字段走 `node:readline` cooked 模式（兼容输入法，评审④）。同一时刻只跑一套，互不干扰。Ink/inquirer 均不采用 |
 | JSON | 原生 `JSON.parse`/`stringify` | `providers.json` / `presets.json` 格式**保持不变**，老用户零迁移 |
 | presets 兜底 | `src/presets-builtin.ts` 导出内置常量 | 等价于现 `$BuiltinPresetsJson`；编译进 JS，无需 `fs` 读取 |
 | i18n | `i18n/zh.json` + `i18n/en.json`（编译进包），逻辑层禁止硬编码中文 | 将来 Go 版可直接复用同一套 JSON |
@@ -395,7 +395,12 @@ npm publish
   - [x] `env/persist-unix.ts`：`buildBlock`/`writeMarkerBlock`(幂等替换 marker 块)/`rcTargetFor`(zsh/bash[darwin→.bash_profile/linux→.bashrc]/fish→提示不支持/其余→.profile，用 posix join)。**macOS 实机加载行为待用户在 Mac 验证；写入逻辑已单测。**
   - [x] `env/default.ts`：`computeManagedVals`(键→值/null) + `setDefault`(平台分叉 + `process` 作用域 dry-run 不落盘，评审⑥)。
   - [x] `index.ts`：`runSession`/`runDefault` 替掉桩；缺密钥黄字警告、claude 缺失/退出码处理；全部文案走 `T()`。端到端 `xx <name>` / `-s` / `--default-scope process` 中英实跑正确。
-- [ ] **M4 TUI**：Ink 主菜单（含排序/记忆选中/状态文案）、动作菜单（toast/停留语义）、编辑表单 + 各 picker、非交互回退
+- [x] **M4 TUI**（完成，2026-06-02，用户真机验证全过）：
+  - [x] `utils/ansi.ts`（颜色+光标+CLEAR_SCREEN）、`ui/select.ts`（自绘↑↓列表：数字直选/Shift+↑↓·PgUp·PgDn 排序/原地重绘/进入即清屏整页感/非交互回退）。
+  - [x] `ui/text.ts`：**弃用 inquirer**——`readValue`(raw 逐键，ASCII 字段，密钥回显*) + `readText`(cooked readline，中文字段兼容输入法)。见决策表。
+  - [x] `ui/pickers.ts`（供应商/地址/认证/effort）、`ui/edit.ts`（编辑表单 + **密钥明文切换 §7** + 名/供应商改动同步 current）、`ui/format.ts`、`ui/menus.ts`（主菜单排序/记忆选中/新增/**语言切换写回 store.lang**/退出；动作菜单 toast/删除二次确认）。
+  - [x] 用户真机验证：输入(密钥/模型/`[1m]`保留)、中文输入法、整页切换、编辑回写、排序、语言切换、明文切换 全部正常。`tsc` 干净、三个 smoke 仍全过。
+  - [x] 顺带：移除未用的 `@inquirer/prompts` 依赖（deps 仅剩 commander/string-width/which）。
 - [ ] **M5 CLI 收尾**：`--lang` / `--version` / `--help` / `--store-dir` / `--default-scope`，与现版行为对齐
 - [ ] **M6 分发**：npm publish；README 更新安装说明（`npm install -g ccx`）；`npm update -g ccx` 更新说明
 - [ ] **M7 文档**：更新 README.md / README.en.md（跨平台、语言切换、npm 装法）；CLAUDE.md 增补 npm 版说明；保留 xx.ps1 直到 npm 版稳定
@@ -422,6 +427,12 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（深夜，**M4 TUI 完成**，用户真机验证全过）：编辑表单 + 各 picker + **密钥明文切换** + 新增 + **语言切换** 全落地。
+  关键修正：① **弃用 inquirer**——它与自绘菜单的 raw 模式抢 stdin、文本输入收不到字；改回 PS 双机制（raw 逐键 readValue + cooked
+  readline readText，后者兼容中文输入法）。② selectMenu 进入时 `CLEAR_SCREEN` 清屏归位，补上「整页切换」的页面感。
+  移除未用的 @inquirer/prompts 依赖。**下一步 M5**：`--lang`/`--version`/`--help`/`--store-dir`/`--default-scope` 收尾 + commander
+  的 description/option 帮助文案接 i18n（M2 推迟到此）；可选 1M 开关。**M4 遗留小项**（可放 M5/M7）：非交互 fallback 重复 createInterface
+  读管道丢缓冲；编辑「官方」档若改供应商，builtin='official' 仍在（边角，正常用不到）。
 - 2026-06-02（深夜，**M4 进行中——菜单底座 + 主/动作菜单**）：新增 `utils/ansi.ts`(零依赖颜色+光标控制)、
   `ui/select.ts`(自绘↑↓菜单：数字直选/Shift+↑↓·PgUp·PgDn 排序/原地重绘不闪/Ctrl+C/非交互回退)、`ui/format.ts`(stateLabel/noteSuffix 共用)、
   `actions.ts`(launchSession 抽出，破 index↔menus 循环)、`ui/menus.ts`(主菜单：列表+排序+记忆选中；动作菜单：本次启用/设为默认 toast/删除二次确认)。

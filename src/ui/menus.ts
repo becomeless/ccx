@@ -1,16 +1,19 @@
 /**
- * 三级菜单（M4，最小可用版）：主菜单 ↔ 动作菜单。
+ * 三级菜单：主菜单 ↔ 动作菜单 ↔ 编辑表单（M4）。
  *
- * 本轮已实现：列表 + 排序（Shift+↑↓/PgUp/PgDn）+ 记忆选中、本次启用、设为默认（绿条 toast）、删除（二次确认）。
- * 「新增 / 编辑」+ 各 picker + 密钥明文切换 + 语言切换 下一步加（现暂提示 coming soon）。
+ * 主菜单：列表 + 排序（Shift+↑↓/PgUp/PgDn）+ 记忆选中 + 新增 + 语言切换 + 退出。
+ * 动作菜单：本次启用 / 设为默认（绿条 toast）/ 编辑 / 删除（二次确认）/ 返回。
+ * 编辑表单见 ui/edit.ts（含密钥明文切换）。
  */
 import { createInterface } from 'node:readline';
 
-import { isOfficial, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
-import { setDefault, type DefaultScope } from '../env/default.js';
 import { launchSession } from '../actions.js';
-import { providerDisplayName, T } from '../i18n/index.js';
+import { isOfficial, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
+import type { Preset } from '../config/types.js';
+import { setDefault, type DefaultScope } from '../env/default.js';
+import { getLang, providerDisplayName, setLang, T } from '../i18n/index.js';
 import { padDisplay } from '../utils/display.js';
+import { editForm } from './edit.js';
 import { noteSuffix, stateLabel } from './format.js';
 import { selectMenu } from './select.js';
 
@@ -21,8 +24,14 @@ async function readLine(prompt: string): Promise<string> {
   return ans.trim();
 }
 
-/** 一级 · 主菜单。 */
-export async function openMenu(paths: StorePaths, store: Store, scope: DefaultScope, version: string): Promise<void> {
+/** 一级 · 主菜单。布局：[profiles…] '' 新增 语言 '' 退出。 */
+export async function openMenu(
+  paths: StorePaths,
+  store: Store,
+  scope: DefaultScope,
+  version: string,
+  catalog: Preset[],
+): Promise<void> {
   let sel = 0;
   for (;;) {
     const n = store.providers.length;
@@ -31,7 +40,7 @@ export async function openMenu(paths: StorePaths, store: Store, scope: DefaultSc
         const dft = p.name === store.current ? T('menu.default') : '';
         return `${padDisplay(providerDisplayName(p), 16)}${padDisplay(dft, 8)}[${stateLabel(p)}]${noteSuffix(p)}`;
       });
-      return [...labels, '', T('menu.newProfile'), '', T('menu.exit')];
+      return [...labels, '', T('menu.newProfile'), T('menu.language'), '', T('menu.exit')];
     };
     const onMove = (from: number, to: number): string[] => {
       const ps = store.providers;
@@ -55,19 +64,37 @@ export async function openMenu(paths: StorePaths, store: Store, scope: DefaultSc
       hint: T('menu.mainHint'),
     });
 
-    if (sel < 0 || sel === n + 3) return; // 退出 / Esc / q
+    if (sel < 0 || sel === n + 4) return; // 退出 / Esc / q
     if (sel === n + 1) {
-      console.log(`  ${T('menu.comingSoon')}`); // 新增：下一步实现
-      continue;
+      // 新增配置
+      const prov: Provider = { name: '', env: {} };
+      if (await editForm(prov, store, catalog)) {
+        store.providers.push(prov);
+        saveStore(paths, store);
+        sel = store.providers.length - 1; // 光标落到新配置
+      }
+    } else if (sel === n + 2) {
+      // 语言切换：即时切并写回 store.lang
+      const next = getLang() === 'zh' ? 'en' : 'zh';
+      setLang(next);
+      store.lang = next;
+      saveStore(paths, store);
+    } else if (sel < n) {
+      const target = store.providers[sel];
+      if (target) await actionMenu(paths, store, target, scope, catalog);
+      if (sel >= store.providers.length) sel = Math.max(0, store.providers.length - 1); // 删除后夹取
     }
-    const target = store.providers[sel];
-    if (target) await actionMenu(paths, store, target, scope);
-    if (sel >= store.providers.length) sel = Math.max(0, store.providers.length - 1); // 删除后夹取
   }
 }
 
-/** 二级 · 动作菜单（循环停留；只有返回/删除已确认才回一级）。 */
-async function actionMenu(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): Promise<void> {
+/** 二级 · 动作菜单（循环停留；返回/删除已确认才回一级）。 */
+async function actionMenu(
+  paths: StorePaths,
+  store: Store,
+  p: Provider,
+  scope: DefaultScope,
+  catalog: Preset[],
+): Promise<void> {
   let sel = 0;
   let flash: string | undefined;
   for (;;) {
@@ -79,18 +106,22 @@ async function actionMenu(paths: StorePaths, store: Store, p: Provider, scope: D
     flash = undefined;
 
     if (sel === 0) {
-      launchSession(p); // 启动 claude，退出后回到本菜单
+      launchSession(p);
     } else if (sel === 1) {
-      flash = applyDefault(paths, store, p, scope); // 留在本页，绿条提示
+      flash = applyDefault(paths, store, p, scope);
     } else if (sel === 2) {
-      console.log(`  ${T('menu.comingSoon')}`); // 编辑：下一步实现
+      const old = p.name;
+      if (await editForm(p, store, catalog)) {
+        if (store.current === old) store.current = p.name; // 改了名/供应商时同步默认指向
+        saveStore(paths, store);
+      }
     } else if (sel === 3) {
       if (isOfficial(p)) console.log(`  ${T('action.deleteOfficialWarn')}`);
       const ans = await readLine(`  ${T('action.deleteConfirm', providerDisplayName(p))}`);
       if (ans === 'y' || ans === 'Y') {
         store.providers = store.providers.filter((x) => x !== p);
         saveStore(paths, store);
-        return; // 配置已删，回一级
+        return;
       }
     } else {
       return; // 返回 / q / Esc

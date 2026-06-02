@@ -14,6 +14,7 @@ import { Command } from 'commander';
 
 import { launchSession, warnIfNoKey } from './actions.js';
 import { loadStore, resolveStorePaths, type Provider, type Store, type StorePaths } from './config/store.js';
+import { loadPresets } from './config/presets.js';
 import { setDefault } from './env/default.js';
 import { providerDisplayName, resolveLang, setLang, T } from './i18n/index.js';
 import { noteSuffix, stateLabel } from './ui/format.js';
@@ -83,7 +84,7 @@ async function dispatch(name: string | undefined, opts: GlobalOpts): Promise<voi
     else runDefault(paths, store, target, opts.defaultScope);
     return;
   }
-  await openMenu(paths, store, opts.defaultScope, pkg.version);
+  await openMenu(paths, store, opts.defaultScope, pkg.version, loadPresets(opts.storeDir));
 }
 
 /** `--list`：列出所有配置及状态。官方档显示名走 i18n（评审①），其余原样。 */

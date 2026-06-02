@@ -40,7 +40,6 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.2.0",
     "commander": "^13.0.0",
     "string-width": "^7.2.0",
     "which": "^5.0.0"

@@ -61,6 +61,53 @@ export const messages: Record<string, Msg> = {
   'action.hint': { zh: '↑↓ 选择 · Enter 确认 · q 返回', en: '↑↓ move · Enter select · q back' },
   'action.deleteConfirm': { zh: '确认删除 [{0}]? (y/N): ', en: 'Delete [{0}]? (y/N): ' },
   'action.deleteOfficialWarn': { zh: '建议保留『官方』。', en: 'Keeping "Official" is recommended.' },
+  'menu.language': { zh: '🌐 切换到 English', en: '🌐 切换到中文' },
+
+  // —— 通用占位 ——
+  'empty.paren': { zh: '(空)', en: '(empty)' },
+
+  // —— 编辑表单 ——
+  'edit.title': { zh: '编辑配置 （↑↓ 选要改的项，Enter 进入；↓到底可选保存/放弃）', en: 'Edit profile (↑↓ pick a field, Enter to edit; save/discard at bottom)' },
+  'edit.hint': {
+    zh: '供应商：选后自动填地址/模型 · 备注随便写 · 回车=不改 · 输入 - =清空',
+    en: 'Provider: auto-fills url/models · Enter=keep · type "-" to clear',
+  },
+  'edit.current': { zh: '当前：{0}', en: 'current: {0}' },
+  'edit.inputHint': { zh: '回车=不改，输入=替换，- =清空', en: 'Enter=keep, type=replace, "-"=clear' },
+  'edit.field.provider': { zh: '供应商        ', en: 'Provider      ' },
+  'edit.field.note': { zh: '备注          ', en: 'Note          ' },
+  'edit.field.base': { zh: 'API 地址      ', en: 'API URL       ' },
+  'edit.field.auth': { zh: '认证字段      ', en: 'Auth field    ' },
+  'edit.field.key': { zh: 'API 密钥      ', en: 'API key       ' },
+  'edit.field.opus': { zh: 'opus  → 模型  ', en: 'opus  → model ' },
+  'edit.field.sonnet': { zh: 'sonnet→ 模型  ', en: 'sonnet→ model ' },
+  'edit.field.haiku': { zh: 'haiku → 模型  ', en: 'haiku → model ' },
+  'edit.field.effort': { zh: 'effort 思考档 ', en: 'effort level  ' },
+  'edit.toggleSecretShow': { zh: '👁  显示密钥明文（当前隐藏）', en: '👁  Show key in plaintext (now hidden)' },
+  'edit.toggleSecretHide': { zh: '🙈 隐藏密钥（当前明文）', en: '🙈 Hide key (now shown)' },
+  'edit.save': { zh: '保存并返回', en: 'Save & back' },
+  'edit.discard': { zh: '放弃修改', en: 'Discard' },
+  'edit.nameEmpty': { zh: '还没选供应商（或自定义名称），未保存。', en: 'No provider/name chosen yet; not saved.' },
+  'edit.customName': { zh: '自定义供应商名称（回车=不改）: ', en: 'Custom provider name (Enter=keep): ' },
+  'edit.noteInput': { zh: '备注（回车=不改，- =清空）: ', en: 'Note (Enter=keep, "-" clear): ' },
+
+  // —— Picker ——
+  'pick.hint': { zh: '↑↓ 选择 · Enter 确认 · q 不改', en: '↑↓ move · Enter select · q keep' },
+  'pick.noChange': { zh: '不修改', en: '(no change)' },
+  'pick.manual': { zh: '手动输入…', en: 'Enter manually…' },
+  'pick.provider.title': { zh: '供应商（当前：{0}）', en: 'Provider (current: {0})' },
+  'pick.provider.none': { zh: '(未选)', en: '(none)' },
+  'pick.provider.custom': { zh: '自定义（手动填名字）', en: 'Custom (type a name)' },
+  'pick.providerUrl.title': { zh: '{0} 有多个 API 地址，选一个', en: '{0} has multiple URLs, pick one' },
+  'pick.base.title': { zh: 'API 地址（当前：{0}）', en: 'API URL (current: {0})' },
+  'pick.base.existing': { zh: '(已有:{0})', en: '(used:{0})' },
+  'pick.base.manualInput': { zh: '手动输入 API 地址（回车=不改，- =清空）: ', en: 'Type API URL (Enter=keep, "-" clear): ' },
+  'pick.auth.title': { zh: '认证字段（当前：{0}）', en: 'Auth field (current: {0})' },
+  'pick.auth.token': { zh: 'AUTH_TOKEN  （Bearer，多数第三方中转）', en: 'AUTH_TOKEN  (Bearer, most 3rd-party relays)' },
+  'pick.auth.apikey': { zh: 'API_KEY  （x-api-key，官方/少数）', en: 'API_KEY  (x-api-key, official/few)' },
+  'pick.effort.title': { zh: 'effort 思考档（当前：{0}）', en: 'effort level (current: {0})' },
+  'pick.effort.empty': { zh: '留空（不设）', en: 'Leave empty' },
+  'pick.effort.hint': { zh: '越往后越深入；auto=模型默认 · q 不改', en: 'deeper to the right; auto=model default · q keep' },
 
   // —— 错误 ——
   'error.notFound': { zh: '找不到配置：{0}', en: 'Profile not found: {0}' },

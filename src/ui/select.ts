@@ -11,7 +11,7 @@
 import { createInterface, emitKeypressEvents, type Key } from 'node:readline';
 
 import { T } from '../i18n/index.js';
-import { CLEAR_DOWN, CR, cursorUp, HIDE_CURSOR, paint, SHOW_CURSOR, type Color } from '../utils/ansi.js';
+import { CLEAR_DOWN, CLEAR_SCREEN, CR, cursorUp, HIDE_CURSOR, paint, SHOW_CURSOR, type Color } from '../utils/ansi.js';
 import { truncateDisplay } from '../utils/display.js';
 
 export interface SelectOptions {
@@ -53,7 +53,7 @@ export async function selectMenu(opts: SelectOptions): Promise<number> {
   const wasRaw = stdin.isRaw ?? false;
   stdin.setRawMode(true);
   stdin.resume();
-  stdout.write(HIDE_CURSOR);
+  stdout.write(CLEAR_SCREEN + HIDE_CURSOR); // 清屏归位，制造「整页」感（每进一级菜单都是新页）
 
   let prevLines = 0;
   const render = (): void => {
