@@ -1,0 +1,64 @@
+/**
+ * 数据层共享类型与常量。
+ *
+ * 数据格式必须与现版 PowerShell 完全兼容（老用户的 ~/.cc-mini/providers.json 能直接读）。
+ * 详见 docs/npm-rewrite-plan.md §3。
+ */
+
+/** 受管的 7 个环境变量（工具只动这些，其它一律不碰）。详见 plan §2。 */
+export const KNOWN_KEYS = [
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'CLAUDE_CODE_EFFORT_LEVEL',
+] as const;
+
+export type ManagedKey = (typeof KNOWN_KEYS)[number];
+
+export type Lang = 'zh' | 'en';
+
+/**
+ * 一个「配置」（profile）。`name` 是唯一键（current / xx <name> / 删除都靠它）。
+ *
+ * `builtin`：稳定的内部标识，**与显示名解耦**（架构师评审①）。官方档 = `'official'`。
+ * 这样界面切英文时，显示名可翻译成 "Official"，而代码判断仍认 `builtin`、数据主键 `name` 不变。
+ * 老文件没有该字段：用 `name === '官方'` 兜底判定（见 store.ts `isOfficial`）。
+ */
+export interface Provider {
+  name: string;
+  note?: string;
+  builtin?: string;
+  env: Record<string, string>;
+}
+
+/** ~/.cc-mini/providers.json 的顶层结构。`lang` 为新增字段，旧文件缺省视为 zh。 */
+export interface Store {
+  current: string;
+  lang?: Lang;
+  providers: Provider[];
+}
+
+/** presets.json 里一个供应商的某个 API 地址（可多个，多个时让用户选）。 */
+export interface PresetUrl {
+  label: string;
+  url: string;
+}
+
+/** 三档模型映射（可部分为空）。 */
+export interface PresetModels {
+  opus?: string;
+  sonnet?: string;
+  haiku?: string;
+}
+
+/** presets.json 里的一个「供应商」（provider）目录条目。 */
+export interface Preset {
+  name: string;
+  auth: 'AUTH_TOKEN' | 'API_KEY';
+  urls: PresetUrl[];
+  models: PresetModels;
+  effort?: string;
+}

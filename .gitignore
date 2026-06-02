@@ -13,6 +13,11 @@ _smoke/
 *.tmp
 *.bak
 
+# ───── Node / npm 构建产物（npm 重写）─────
+node_modules/
+dist/
+*.tsbuildinfo
+
 # ───── 系统 / 编辑器 ─────
 .DS_Store
 Thumbs.db

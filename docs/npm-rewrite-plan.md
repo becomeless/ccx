@@ -1,0 +1,419 @@
+# ccx → npm/TypeScript 重写：交接文档 / 任务清单
+
+> 本文件是 **跨上下文窗口的唯一事实来源（source of truth）**。
+> 接手时先读完本文，再读 `CLAUDE.md`，然后看 `xx.ps1`（被复刻的原始实现）。
+> 每完成一个里程碑，回来勾选下方 checklist 并补充「已知问题 / 进度笔记」。
+>
+> ⚠️ 长期方向仍是「npm + Go 二进制双线」——`docs/go-rewrite-plan.md` 保留不动，
+>   将来 Go 版以此为据。npm 版先行，验证跨平台设计 + i18n + 真实反馈，Go 版后续
+>   把验证过的设计移植过去、水到渠成。
+
+---
+
+## 0. 一句话目标
+
+把现有 PowerShell-only 的 `ccx`（命令 `xx`）重写为 **npm 全局包**（TypeScript），
+做到 **`npm install -g ccx` 一条命令跨平台安装**、Windows / macOS / Linux 同一套代码、
+并内建 **中英文切换（i18n）**。
+行为、数据格式、铁律与现版完全对齐，体验只能更好、不能更差。
+
+---
+
+## 1. 已锁定的决策（不要再推翻，除非用户明确改主意）
+
+| 项 | 决策 | 理由 |
+|---|---|---|
+| 语言 | **TypeScript**（Node.js ≥18） | 与 Claude Code 同生态；npm 分发零摩擦；用户必有 Node.js |
+| 菜单 UI | **`@inquirer/prompts` + 自绘 ANSI 列表**（不上 Ink） | 这工具就是几级菜单+文本输入，Ink 的 React/JSX 转译是过度工程；inquirer 走 readline cooked 模式，**天然兼容中文输入法**（见评审④）。Ink 列为不采用方案 |
+| JSON | 原生 `JSON.parse`/`stringify` | `providers.json` / `presets.json` 格式**保持不变**，老用户零迁移 |
+| presets 兜底 | `src/presets-builtin.ts` 导出内置常量 | 等价于现 `$BuiltinPresetsJson`；编译进 JS，无需 `fs` 读取 |
+| i18n | `i18n/zh.json` + `i18n/en.json`（编译进包），逻辑层禁止硬编码中文 | 将来 Go 版可直接复用同一套 JSON |
+| 首版平台 | **Windows / macOS / Linux 同时** | npm 没有平台编译差异，天然全平台 |
+| 分发 | **npm registry**（`npm install -g cc-x`） | 一条命令装好，一条命令更新，零自建分发 |
+| 过渡 | 重写期间 `xx.ps1` **原样保留不动**，npm 版验证 OK 再主推 | 降低风险 |
+
+仓库：`github.com/becomeless/ccx`（origin，HTTPS）。`gh` CLI 可用（v2.90）。
+
+> **npm 包名（已定）**：`ccx` 已被占用（npm 上已有 1.0.0），最终包名定为 **`cc-x`**（无作用域、最接近
+>   ccx 品牌、2026-06-02 已确认可用）。**命令名仍是 `xx`**（`package.json` 的 `bin: { "xx": ... }`），不受包名影响。
+
+---
+
+## 1.5 架构师评审补充（2026-06-02，对照真实 `xx.ps1` 逐行核出的 6 点）
+
+> 这 6 条是 plan 原稿没覆盖到位的地方，**实现时务必照办**。其中 ①④ 是「中英文切换」的两个真陷阱。
+
+**① 🔴 i18n 数据层 sentinel：`"官方"` 既是显示文案、又是数据主键 —— 必须拆开。**
+真实代码里 `"官方"` 是贯穿全局的判断条件（`name -eq '官方'` → 显示"登录态"`xx.ps1:170`、跳过缺密钥警告
+`:233/:259`、删除时"建议保留"`:629`），而 `name` 同时是 providers.json 的**唯一主键**（`current`/`xx <name>`/删除全靠它）。
+**不能既翻译它显示成 "Official" 又拿它当稳定 key。** 修法：数据层加稳定标识 `builtin`（官方档 = `"official"`），
+或直接以「env 为空」判定官方；代码所有判断改认 `builtin === 'official'`，中/英只是它的**显示名**。
+读旧文件容错：没有 `builtin` 字段时，认 `name === '官方'`（与现版 PowerShell 的判定完全一致）。
+**不采用「env 为空」兜底**——半创建/未填 base 的第三方档 env 也可能是空，会误判。
+（M1 已落地：`Provider.builtin?: string`，官方档 `builtin:'official'`；`defaultStore()` 写它、`isOfficial()` 读它。）
+DeepSeek/智谱GLM/小米MiMo 是专有名词，**保持原样不翻译**，只有"官方"这个普通名词需要这层拆分。
+
+**② 🔴 Windows 上 `claude` 是 `claude.cmd`（npm shim），Session-Launch 不是白嫖。**
+plan 把"inherit stdio 天然解决"当红利——这对 macOS/Linux 成立，**对 Windows 过于乐观**：
+`spawn('claude')` 不带 `shell:true` 找不到 `.cmd`；带了 `shell:true`+`stdio:inherit` 又易破坏 Ctrl+C/TTY 信号。
+做法：用 `which` 解析真实路径，对 `.cmd` 单独处理，**Windows 上必须实测信号与 TTY**，别假设白嫖。
+
+**③ 🟡 Windows 持久化钉死 `powershell.exe`（5.1，必然存在），不是 `pwsh`（7+，用户可能没装）。**
+把现版 `Set-UserEnv-Fast`（注册表循环写 `HKCU:\Environment`）+ `Invoke-EnvBroadcast`（单次 100ms
+`WM_SETTINGCHANGE` 广播）原样搬成一段 here-string，用 `child_process` 调 `powershell.exe -NoProfile -Command`。
+
+**④ 🟡 文本输入用 readline/cooked 模式，别用 raw 逐字符读 —— 为兼容中文输入法。**
+真实代码特意分两套：密钥/模型用 raw 逐键（`Read-Value`），**中文名称/备注用 `Read-Host`**（注释明说"兼容输入法"）。
+raw 逐字符读中文会让输入法组词崩。`@inquirer/prompts` 的 `input` 天然是 cooked 模式 → 又一条「用 inquirer 不用 Ink」的理由。
+
+**⑤ 🟢 presets 支持用户覆盖：`~/.cc-mini/presets.json`（可选）> 内置常量兜底。**
+现版从脚本同目录读 presets.json、用户可直接改加供应商；npm 全局装后文件躲在 node_modules 里不好改。
+改成优先读用户目录的 `presets.json`，加供应商不必动 node_modules、也不必等发版。
+
+**⑥ 🟢 `--default-scope process` 在 Node 里重定义为「不落盘 dry-run」。**
+PS 里它写进程作用域；Node 进程一退即没、无意义。它真实用途是**测试时不写注册表/不写 rc 文件**——
+在 Node 里就定义成"算好 env + 更新 store.current，但跳过平台持久化"的 dry-run，文档讲清。
+
+---
+
+## 2. 铁律（违反即作废，来自 CLAUDE.md）
+
+**ccx 永远不写任何「配置文件」** —— 不写 `~/.claude/settings.json`、不碰 `~/.claude.json`（MCP 配置）。
+它 **只通过环境变量** 工作。这是工具存在的全部理由（不可能误伤用户的 MCP/插件/hooks）。
+
+- 「设为默认」在 Unix 上写 shell 启动文件（`.zshrc`/`.bashrc`）—— 这与现版 `install.ps1` 改 `$PROFILE`
+  同性质，**不碰 `~/.claude`，不违反铁律**。这是 Unix 上唯一的「持久化用户环境变量」手段。
+- 任何写用户 config 文件的设计都要拒绝。拿不准时，选「让工具更简单」的那条路。
+
+### 受管的 7 个环境变量（只动这些，其它一律不碰）
+
+```
+ANTHROPIC_BASE_URL
+ANTHROPIC_AUTH_TOKEN
+ANTHROPIC_API_KEY
+ANTHROPIC_DEFAULT_OPUS_MODEL
+ANTHROPIC_DEFAULT_SONNET_MODEL
+ANTHROPIC_DEFAULT_HAIKU_MODEL
+CLAUDE_CODE_EFFORT_LEVEL
+```
+
+**故意不设** `ANTHROPIC_MODEL`（模型选择交给会话内 `/model`；三个 `*_MODEL` 把 opus/sonnet/haiku 映射到各家真实模型名）。
+启用某配置时：该配置用到的键 → 设值；没用到的受管键 → 清除。
+
+---
+
+## 3. 数据格式（必须保持兼容，老用户文件能直接读）
+
+### 3.1 `~/.cc-mini/providers.json`（用户配置，含明文密钥，**绝不提交**）
+
+Windows 路径用 `%USERPROFILE%\.cc-mini\providers.json`；Unix 用 `$HOME/.cc-mini/providers.json`。
+Node 里统一用 `os.homedir()`。可被 `--store-dir` 覆盖（测试用）。
+
+结构（字段名、大小写、嵌套必须一致）：
+
+```json
+{
+  "current": "官方",
+  "providers": [
+    { "name": "官方", "note": "", "env": {} },
+    {
+      "name": "DeepSeek", "note": "备注可空",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "sk-...",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash",
+        "CLAUDE_CODE_EFFORT_LEVEL": "max"
+      }
+    }
+  ]
+}
+```
+
+- `env` **只存非空的受管键**（按 KnownKeys 顺序，跳过空白值）。
+- `name` 是唯一键（`current`、`xx <name>`、删除都靠它）。同供应商可多条，靠 `note` 区分。
+- 首次运行若文件不存在：用内置默认（官方 + DeepSeek + 智谱GLM + 小米MiMo，密钥空）生成。
+- **新增字段**：顶层 `"lang": "zh"`（缺省视为 `zh`）。读时容错：旧文件没有该字段不报错。
+- 写入：UTF-8 **无 BOM**；缩进 2 空格。
+
+### 3.1.1 模型名的 `[1m]` 后缀处理（来自官方 model-config 文档）
+
+`[1m]` 是 Claude Code 的**上下文窗口标记**：把 `opus`/`sonnet` 别名切到 100 万 token 上下文，可附加到
+`ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL`（例：`claude-opus-4-8[1m]`）。
+**剥离逻辑在 Claude Code**——CC 把模型 ID 发给 provider 前会自己删掉 `[1m]`，**不是我们的活**。
+
+对 cc-x 的影响 = **几乎零代码**（模型字段本就是自由文本，原样存进 env var）。要守住 3 条边界：
+
+1. **不要清洗/校验掉方括号** —— 模型输入框保持 free-text 原样存储，重写时别手贱加正则把 `[1m]` 过滤掉。
+2. **`[1m]` 只对官方 Anthropic 模型（Opus4.6+/Sonnet4.6）有意义** —— 第三方中转（DeepSeek/GLM/MiMo）加它无意义甚至有害
+   （CC 剥后缀后第三方不一定支持 1M，可能报错）。**presets 目录里第三方供应商绝不预置 `[1m]`。**
+3. **仅 OPUS/SONNET 两个变量适用，HAIKU 不带**（haiku 不支持 1M；它是 per-variable 读取，非 per-model）。
+
+可选增强（follow-up，非首版）：编辑表单给 opus/sonnet 行加「☐ 1M 上下文」开关，勾选自动在模型名尾部加/去 `[1m]`，
+并提示"仅 Anthropic 官方模型有效，第三方勿用"。省去手敲方括号、防止误用。
+
+### 3.2 `presets.json`（供应商目录，随仓库分发 + 内置兜底）
+
+每条：`{ name, auth, urls:[{label,url}], models:{opus,sonnet,haiku}, effort? }`。
+- `auth`：`"AUTH_TOKEN"`（Bearer，多数第三方）或 `"API_KEY"`（x-api-key，官方/少数）。
+- `urls`：可多个（如 MiMo 有「按量付费API」「TokenPlan」两个），多个时让用户选。
+- `models`：推荐的三档映射；`effort` 可选（DeepSeek=max，其余多为空）。
+- 选了某供应商 → 自动填 base url（多 url 弹选择）、三档模型、auth 字段、effort。
+- 运行时优先读包内 `presets.json`，缺失/解析失败则用内置常量兜底。
+
+---
+
+## 4. 两种启用模式（核心，逐字对齐现版语义）
+
+### 4.1 本次启用（Session-Launch）—— 进程级、阅后即焚
+1. 取目标配置的 env map。
+2. 对 7 个受管键：有值 `process.env[key] = value`，没值 `delete process.env[key]`（**只动这 7 个**）。
+3. 找到 `claude` 可执行（`which`/`where` 查找；找不到给红字提示并返回）。
+4. `child_process.spawn('claude', [], { stdio: 'inherit' })` —— **stdio inherit 天然把真实控制台句柄
+   传给子进程**，不会像 PowerShell 的 `pwsh -File` 那样把 stdin 包成管道导致 claude 误判 `isTTY`。
+5. 等 claude 退出后返回（菜单场景回到上级菜单；CLI 场景结束）。
+6. 多终端并行各跑各的 API、互不干扰。
+
+### 4.2 设为默认（Set-Default）—— 持久化用户环境变量，仅影响**新开**终端
+对 7 个受管键：目标配置有值的写值，没值的清除。然后 `store.current = name` 并存盘。
+
+**平台分叉（唯一有平台差异的地方）：**
+
+- **Windows**：
+  1. 出于零原生依赖的考虑，通过 `child_process.execSync` 调用 PowerShell 完成注册表写入 +
+     单次 `WM_SETTINGCHANGE` 广播。逻辑与现版 `Set-RegistryAndBroadcast` 完全一致：
+     - 直写 `HKCU\Environment`：有值 `SetValue`，无值 `DeleteValue`
+     - 只广播一次（`SendMessageTimeout`，超时 100ms，`lParam="Environment"`）
+  2. 备选方案：如果未来想摘掉 PowerShell 依赖，可引入 `node-ffi` 或写极小 `.node` addon——
+     但 v1 不折腾，PowerShell 在 Windows 上必然存在。
+  3. 绝不用「逐个 setx」——广播 7 次太慢。
+
+- **macOS / Linux**：写 shell 启动文件里的 **marker 块**（幂等，可重复重写）：
+  ```sh
+  # >>> xx >>>
+  export ANTHROPIC_BASE_URL="https://..."
+  export ANTHROPIC_AUTH_TOKEN="sk-..."
+  # ...只导出当前配置用到的受管键
+  # <<< xx <<<
+  ```
+  - 每次「设为默认」**整体重写**这个块（用正则定位 `# >>> xx >>>` … `# <<< xx <<<`，替换或追加）。
+    重写即自动「清除」上个默认里多余的 export（块里只剩当前配置的键）。
+  - 选哪个文件：按 `$SHELL` basename — `zsh`→`~/.zshrc`，`bash`→ macOS 用 `~/.bash_profile`（登录 shell）、
+    Linux 用 `~/.bashrc`；都没有就 `~/.profile`。
+  - **fish 语法不同**（`set -gx K V`，无 `export`）：v1 可先不支持，检测到 fish 给提示「请手动设置或用本次启用」；
+    或单独写 `~/.config/fish/config.fish` 的 fish 块。列为 follow-up。
+  - 语义与 Windows 一致：**只影响新开终端，不动正在运行的会话**（rc 文件只在新交互 shell 启动时加载）。
+
+---
+
+## 5. i18n 设计（中英文切换）
+
+- `src/i18n/zh.json` + `src/i18n/en.json`：两个扁平 JSON，key 相同，值是对应语言文案。
+  ```json
+  // zh.json
+  { "menu.title": "ccx · Claude Code API 切换", "menu.exit": "退出", ... }
+  // en.json  
+  { "menu.title": "ccx · Claude Code API Switcher", "menu.exit": "Exit", ... }
+  ```
+- `src/i18n/index.ts`：`T(key: string, ...args: string[]): string` —— 查当前语言的 JSON，
+  缺 key 回退到 `zh` 或返回 key 本身（便于发现漏翻）。
+- 语言来源优先级：`--lang en` 参数 > `providers.json` 的 `lang` 字段 > 环境 `LC_ALL`/`LANG`（含 `zh` 视为中文）> 默认 `zh`。
+- 主菜单加一项「语言 / Language」即时切换并存盘（写回 `lang` 字段）。
+- **所有 user-facing 字符串都走 `T()`**；提交前 grep 确认逻辑层无裸中英文硬编码。
+- **这套 JSON 将来 Go 版可直接 `embed` 复用**——npm 版的 i18n 投入不会浪费。
+- CJK 宽度对齐：用 `string-width`（npm 包，封装了 `eastasianwidth`）处理全角=2 半角=1。
+- ⚠️ **两个跨语言真陷阱见 §1.5 ①④**：①数据层 `"官方"` sentinel 与主键冲突（要拆 `builtin` 标识）；
+  ④文本输入必须走 cooked 模式兼容中文输入法。i18n 不止是「UI 字符串抽 JSON」，这两条才是难点。
+
+---
+
+## 6. CLI 参数（对齐现版 + 新增 --lang）
+
+| 现版（PowerShell） | npm 版 | 行为 |
+|---|---|---|
+| `xx` | `xx` | 打开交互菜单 |
+| `xx DeepSeek` | `xx DeepSeek` | 设为默认到该配置 |
+| `xx DeepSeek -Session` | `xx DeepSeek --session` / `-s` | 本次启用并启动 claude |
+| `xx -List` | `xx --list` / `-l` | 列出所有配置及状态 |
+| `xx -StoreDir <d>` | `xx --store-dir <d>` | 覆盖存储目录（测试用） |
+| `xx -DefaultScope Process` | `xx --default-scope process` | 设为默认写到哪：`user`(默认持久) / `process`(仅测试，不持久) |
+| （无） | `xx --lang zh\|en` | 本次界面语言 |
+| （无） | `xx --version` / `xx --help` | 版本 / 帮助 |
+
+CLI 解析用 `commander`（npm 标准，自生成 help）。找不到 `<name>` 时：红字「找不到配置：X」+ 列出现有名字，退出码 1。
+
+---
+
+## 7. 菜单结构（三级，逐项复刻现版交互）
+
+参考 `xx.ps1` 的 `Main-Menu` / `Action-Menu` / `Edit-Form` 及各 `Pick-*`。
+用 **Ink**（React）实现：每个菜单一个组件，通过 React 状态管理选中项记忆、toast 等。
+
+**一级 · 主菜单**（`MainMenu`）
+- 列出所有配置：`名称(对齐16)  (默认)(对齐8) [状态] — 备注`。
+- 状态文案：`官方`→`登录态`；否则 `密钥未填` / `密钥·API_KEY` / `密钥已设`；
+  若有 effort 追加 ` · effort=xxx`。
+- `Shift+↑↓` 或 `PgUp/PgDn` **就地排序**配置并立即存盘（只在配置区前 N 项内移动）。
+- 「＋ 新增配置」（亮黄色）、「语言 / Language」、「退出」。
+- **记住选中项**：从二级返回后光标停在刚操作的配置上；新建成功后落到新配置；删除后夹取范围。
+
+**二级 · 动作菜单**（`ActionMenu`，标题含配置名/默认标记/备注/状态）
+- `本次启用` → 启动 claude，退出后**回到本菜单**（停在该项）。
+- `设为默认` → 执行后**留在本页**，顶部绿色 toast 提示一轮（不回一级）。
+- `编辑` → 进表单；保存/放弃都回本菜单停在「编辑」。改了名字/供应商且它是当前默认时，同步 `current`。
+- `删除` → 二次确认 `(y/N)`；`官方` 给「建议保留」提示；删后回一级。
+- `返回 / q / Esc` → 回一级。
+- **记住选中的动作项**。
+
+**三级 · 编辑表单**（`EditForm`，一屏显示所有字段，选序号改单项）
+- 字段：供应商 / 备注 / API 地址 / 认证字段 / API 密钥(默认显示 `****`) / opus / sonnet / haiku / effort。
+- 🆕 **密钥明文切换（新需求 2026-06-02）**：表单里 API 密钥行默认掩码 `********`，提供一个切换把它显示成
+  明文（再切回 `****`）。实现：表单维护 `showSecret` 布尔；菜单加一项「👁 显示/隐藏密钥明文」（或在密钥行上按
+  特定键），翻转后**仅重绘该行**——明文时显示真实 token，掩码时显示 `********`（空值仍显示 `(空)`）。
+  默认隐藏（防肩窥/录屏泄露）；切换只影响本次表单的**显示**，不改任何数据、不持久化。
+  输入态（`Read-Value -Secret`）仍逐字符回显 `*`，与这里的"查看态"是两回事。
+- 选「供应商」→ `PickProvider`（从目录选或自定义手填名）；选定后自动填 base(多 url 弹 `PickProviderUrl`)、
+  三档模型、auth、effort。
+- 选「API 地址」→ `PickBaseUrl`（目录所有 url + 已有配置用过的 url + 手动输入 + 不修改）。
+- 选「认证字段」→ `PickAuth`（AUTH_TOKEN / API_KEY）。
+- 选「effort」→ `PickEffort`（low/medium/high/xhigh/max/auto/留空）。
+- 文本输入语义：回车空=不改、输入 `-` 回车=清空、Esc=取消（密钥用掩码显示）。
+- 「保存并返回」：名字空则拒绝；按 auth 把密钥写进 `ANTHROPIC_API_KEY` 或 `ANTHROPIC_AUTH_TOKEN`；
+  `resolveUniqueName`（同名被别条占用则追加 ` 2`/` 3`…，排除自身）；`buildProviderEnv`（按 KnownKeys 顺序、丢空值）。
+- **记住选中字段**：改完一项回到表单停在原项。
+
+**通用菜单交互**：↑↓ 导航（跳过空分隔行）、数字键直选、Enter 确认、q/Esc 取消、
+原地重绘不闪烁、非交互/无控制台时回退到「打印列表 + 读 stdin 序号」。
+Ink 的 `useInput` + 组件状态管理覆盖大部分；非交互回退用 `process.stdout.isTTY` 判断。
+
+---
+
+## 8. 建议的项目结构
+
+```
+ccx/
+  package.json                // name:"ccx", bin:{xx:"./dist/index.js"}, files:[...]
+  tsconfig.json               // target:ES2022, module:NodeNext, outDir:dist
+  src/
+    index.ts                  // 入口：#!node → commander 解析 → 分派 CLI 或启动 Ink
+    cli.ts                    // CLI 模式（--list, xx <name>, --session 等，不启动 TUI）
+    config/
+      store.ts                // providers.json 读写、默认生成
+      presets.ts              // presets.json 加载 + 内置常量兜底
+    env/
+      session.ts              // 本次启用（全平台统一：spawn claude inherit stdio）
+      default.ts              // 设为默认（公共逻辑 + 平台分叉）
+      persist-windows.ts      // Windows：PowerShell 子进程写注册表 + 广播
+      persist-unix.ts         // Unix：shell rc 文件 marker 块读写
+    i18n/
+      zh.json                 // 中文文案（与未来 Go 版共享格式）
+      en.json                 // 英文文案（与未来 Go 版共享格式）
+      index.ts                // T()、Lang 检测、切换
+    ui/                       // Ink 组件：主菜单/动作菜单/表单/各 picker
+      app.tsx                 // Ink 入口 + 页面路由
+      main-menu.tsx           // 一级
+      action-menu.tsx         // 二级
+      edit-form.tsx           // 三级
+      pickers.tsx             // PickProvider / PickBaseUrl / PickAuth / PickEffort
+      components/
+        toast.tsx             // 绿色 toast 提示条
+        select-list.tsx       // 通用列表组件（highlight/数字/排序）
+        text-input.tsx        // 文本输入组件（掩码显示、空=不改、-=清空）
+    utils/
+      display-width.ts        // CJK 宽度计算（基于 string-width）
+      shell.ts                // shell 检测（zsh/bash/fish）
+  presets.json                // 供应商目录（保留）
+  xx.ps1                      // 过渡期保留，勿动
+  docs/
+    go-rewrite-plan.md        // Go 二进制计划（保留，将来用）
+    npm-rewrite-plan.md       // 本文件
+```
+
+依赖（`npm install`）：
+- **`commander`** — CLI 参数解析（自生成 help）
+- **`ink`** + `react` — TUI 框架（组件化菜单）
+- **`chalk`** — 终端颜色
+- **`string-width`** — CJK 宽度计算
+- **`which`** — 跨平台查找可执行文件（Win 上找 `claude.cmd`）
+
+---
+
+## 9. 构建 / 测试命令
+
+```powershell
+# 开发（直接跑 TS）
+npx tsx src/index.ts
+npx tsx src/index.ts --list
+npx tsx src/index.ts DeepSeek --session --store-dir ./test-store --default-scope process
+
+# 构建
+npx tsc
+
+# 本地链接测试（模拟全局安装）
+npm link
+xx --list
+
+# 发布
+npm publish
+```
+
+本地验证（不污染真实环境）：用 `--store-dir <临时目录>` + `--default-scope process`。
+
+---
+
+## 10. 里程碑 Checklist（完成就勾，并在末尾记进度）
+
+- [x] **M0 项目骨架**：`package.json`（name=`cc-x`, bin=`xx`, ESM, Node≥18）、`tsconfig.json`（NodeNext+strict）、
+      `src/index.ts`（commander 解析 + 分派桩，含 `KNOWN_KEYS`）。`npm run build` 通过、`--list`/`<name> -s`/无参/`--version` 跑通。
+      依赖已装：commander / @inquirer/prompts / string-width / which（+ typescript/tsx/@types）。包名 `cc-x` 已确认可用。
+- [x] **M1 数据层**（完成，2026-06-02；`_smoke/m1.ts` 21 项断言全过、`tsc` 干净、`--list` 实跑正确）：
+  - [x] `src/config/types.ts`：`KNOWN_KEYS` / `ManagedKey` / `Lang` / `Provider`（含 `builtin?`）/ `Store`（含 `lang?`）/ `Preset` 等类型。
+  - [x] `src/config/store.ts`：`resolveStorePaths`(`--store-dir`/默认 ~/.cc-mini)、`defaultStore`(官方带 `builtin:'official'`)、
+        `loadStore`(容错规整 + 缺文件即生成落盘)、`saveStore`(UTF-8 无 BOM + 2 空格 + 末尾换行)、`isOfficial`(builtin 优先、名兜底)、
+        `getProviderEnvMap`、`buildProviderEnv`(按 KNOWN_KEYS 序、丢空)、`getProviderState`(返回**语义枚举** KeyState+effort，不含界面文案，留给 i18n)、
+        `findProvider`、`resolveUniqueName`、`getLang`/`setLang`。
+  - [x] `src/config/presets.ts`：`BUILTIN_PRESETS` 常量(镜像 presets.json) + `loadPresets`(用户 `~/.cc-mini/presets.json` > 包内 presets.json > 内置兜底；坏 json 安静跌落)。
+  - [x] `index.ts` 改从数据层 import；`--list` 接真实 store（CJK 对齐、状态文案与现版一致）；`xx <不存在>` 报错并 exit 1。文案仍临时中文，待 M2 接 i18n。
+  - [x] 编译 + `_smoke/m1.ts` 冒烟（gitignored）：默认生成、UTF-8 无 BOM 往返、旧文件无 builtin 容错、状态枚举、buildProviderEnv 按序丢空 + 保 `[1m]`、resolveUniqueName、presets 三级加载全过。
+- [ ] **M2 i18n**：`i18n/zh.json` + `i18n/en.json` + `T()`；抽离全部字符串（zh 先全，en 跟上）；`string-width` 对齐
+- [ ] **M3 两模式**：`env/session.ts`（spawn claude，inherit stdio）；`env/default.ts` + `env/persist-windows.ts`（PS 子进程注册表+广播）+ `env/persist-unix.ts`（rc marker 块）。先做 CLI 路径（`xx <name>` / `-s` / `--list`）跑通
+- [ ] **M4 TUI**：Ink 主菜单（含排序/记忆选中/状态文案）、动作菜单（toast/停留语义）、编辑表单 + 各 picker、非交互回退
+- [ ] **M5 CLI 收尾**：`--lang` / `--version` / `--help` / `--store-dir` / `--default-scope`，与现版行为对齐
+- [ ] **M6 分发**：npm publish；README 更新安装说明（`npm install -g ccx`）；`npm update -g ccx` 更新说明
+- [ ] **M7 文档**：更新 README.md / README.en.md（跨平台、语言切换、npm 装法）；CLAUDE.md 增补 npm 版说明；保留 xx.ps1 直到 npm 版稳定
+
+---
+
+## 11. 已知问题 / 风险 / 待定
+
+- **`socket connection closed unexpectedly` 报错与 ccx 无关，且新版不应去"修"它（2026-06-02 已调查定论）**：
+  该错是 Claude Code 自身 HTTP 客户端（Node `fetch`）直连模型 API 时连接被对端断开，**在官方 `api.anthropic.com`
+  和多个第三方端点上都复现** → 共同点是用户本机到 API 的网络链路（代理/VPN 不稳），不是任何单一端点、更不是切换器。
+  ccx 只设 7 个受管环境变量后即退出，**不在请求链路里、也不碰任何代理类变量**，物理上不可能造成或缓解它。
+  ⛔ **不要给 ccx 加重试/代理/请求包装层**——那会让它坐进请求链路，违背"纯环境变量、绝不沾请求"的铁律。
+  缓解归属在 ccx 之外（稳定代理、Claude Code 自身重试）。下个对话若再遇到此错，按此结论处理，勿当 ccx bug。
+- **npm 包名**：`ccx` 已被占用，最终定为 **`cc-x`**（无作用域，命令名仍 `xx`）。见 §1。
+- **fish shell**：export 语法不同（`set -gx`），v1 暂不支持设为默认（给提示）。follow-up。
+- **macOS 实测**：rc 文件写入与 claude TTY 行为需在 mac 实机验证。npm link 后即可测，比 Go 交叉编译方便得多。
+- **Ink 学习曲线**：React + JSX 转译增加构建步骤（`tsx` 开发 / `tsc` 构建）。若 Ink 太重，降级方案：`@inquirer/prompts` + 自绘 ANSI 列表（与现版 PowerShell 同模式）。
+- **Windows 注册表持久化**：当前方案走 PowerShell 子进程（Windows 上必然存在），干净无原生依赖。若未来想摘掉，可选 `node-ffi` 或 `.node` addon。
+- **版本号**：现版在 `xx.ps1` 的 `$script:Version` 与 `ccx.psd1` 的 ModuleVersion 两处。npm 版用 `package.json` 的 `version` 字段（npm 标准）。发版流程见 memory `ccx-release-workflow`。
+- **Node.js 版本**：Claude Code 要求 Node ≥18，`ccx` 跟随这个下限。
+
+---
+
+## 12. 进度笔记（每次接手在此追加，倒序）
+
+- 2026-06-02（晚，**M1 完成**）：`types.ts` + `store.ts` + `presets.ts` 全部落地，`index.ts` 接通 `--list`。
+  `tsc` 干净、`_smoke/m1.ts` 21 项断言全过、构建产物实跑 `--list` 正确。关键实现决策：`isOfficial` 用
+  **builtin 优先、`name==='官方'` 兜底**（放弃 plan 原稿的「env 为空」判定，理由见 §1.5①）；`getProviderState` 只返回**语义枚举**
+  不返回中文，翻译留给 i18n（贯彻评审①的数据/显示解耦）；presets 三级加载 + 坏 json 安静兜底。
+  **下一步 M2 i18n**：建 `i18n/zh.json`+`en.json`+`T()`，把 `index.ts`/数据层里临时中文（如 `runList`/`stateLabel`）替换掉，
+  并按评审①把官方档显示名做成 `T('provider.official')`。另：调查清楚 `socket closed` 报错**与 ccx 无关**（官方+第三方都复现 =
+  本机网络问题），结论存进 §11，新版不为此加请求层。
+- 2026-06-02：决策锁定。① **包名定为 `cc-x`**（`ccx` 已被占；命令名仍 `xx`）。② **UI 改用 `@inquirer/prompts`
+  + 自绘 ANSI 列表，放弃 Ink**（过度工程 + 输入法考虑）。③ 完成架构师评审，对照真实 `xx.ps1` 补出 6 点（见 §1.5），
+  重点是 i18n 的两个真陷阱（`"官方"` sentinel 与主键冲突、文本输入 cooked 模式兼容输入法）。④ 新增需求：编辑表单**密钥明文切换**
+  （见 §7）。⑤ 已卸载/待卸载 winget 装的 Go（npm 路线不再需要）。⑥ M0 骨架搭建中。
+- 2026-06-01：推翻 Go 二进制方案，改走 npm（TypeScript）。保留 `docs/go-rewrite-plan.md` 为长期参考。i18n JSON 设计为双版共享。尚未写任何 TS 代码（M0 未开始）。
