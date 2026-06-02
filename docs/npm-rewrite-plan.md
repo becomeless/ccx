@@ -388,7 +388,13 @@ npm publish
   - [x] `src/utils/display.ts`：`displayWidth`/`padDisplay` 基于 `string-width`，替换手写码点判断。
   - [x] `index.ts` 现有文案（list/state/error + 默认标签）全部走 `T()`；官方档中英显示名切换、数据主键 `name` 不变。
   - [ ] **留待 M4/M5**：菜单/表单文案（M4 写时即用 `T()`）；commander `--help`/option 描述的 i18n（M5 收尾）；主菜单「语言切换」项 + 写回 `store.lang`（M4）。
-- [ ] **M3 两模式**：`env/session.ts`（spawn claude，inherit stdio）；`env/default.ts` + `env/persist-windows.ts`（PS 子进程注册表+广播）+ `env/persist-unix.ts`（rc marker 块）。先做 CLI 路径（`xx <name>` / `-s` / `--list`）跑通
+- [x] **M3 两模式**（完成，2026-06-02；`_smoke/m3.ts` 全过，含 Windows 真机验证）：
+  - [x] `env/session.ts`：`applyManagedEnv`(有值 set/没值 delete，只动 7 个)、`resolveClaude`(which)、`sessionLaunch`(spawn inherit stdio；
+        Windows 经 cmd.exe + 引号包裹启动 `.cmd`，绕开 Node 的 EINVAL，评审②)。**已用假 claude.cmd 真机验证退出码透传。**
+  - [x] `env/persist-windows.ts`：`powershell.exe`(评审③) 子进程经 JSON payload(env var) 写 HKCU\Environment + 单次 100ms 广播。**已用 throwaway 键真机验证写/删。**
+  - [x] `env/persist-unix.ts`：`buildBlock`/`writeMarkerBlock`(幂等替换 marker 块)/`rcTargetFor`(zsh/bash[darwin→.bash_profile/linux→.bashrc]/fish→提示不支持/其余→.profile，用 posix join)。**macOS 实机加载行为待用户在 Mac 验证；写入逻辑已单测。**
+  - [x] `env/default.ts`：`computeManagedVals`(键→值/null) + `setDefault`(平台分叉 + `process` 作用域 dry-run 不落盘，评审⑥)。
+  - [x] `index.ts`：`runSession`/`runDefault` 替掉桩；缺密钥黄字警告、claude 缺失/退出码处理；全部文案走 `T()`。端到端 `xx <name>` / `-s` / `--default-scope process` 中英实跑正确。
 - [ ] **M4 TUI**：Ink 主菜单（含排序/记忆选中/状态文案）、动作菜单（toast/停留语义）、编辑表单 + 各 picker、非交互回退
 - [ ] **M5 CLI 收尾**：`--lang` / `--version` / `--help` / `--store-dir` / `--default-scope`，与现版行为对齐
 - [ ] **M6 分发**：npm publish；README 更新安装说明（`npm install -g ccx`）；`npm update -g ccx` 更新说明
@@ -416,6 +422,12 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（深夜，**M3 两种启用模式完成**）：`env/{session,default,persist-windows,persist-unix}.ts` 全落地，`index.ts`
+  的 session/default 桩换成真实实现。`_smoke/m3.ts` 全过，**含 Windows 真机验证**：假 `claude.cmd` 经 cmd.exe 启动 + 退出码
+  透传（评审②）、`powershell.exe` 注册表写/删 + 广播（评审③，用 throwaway 键不碰真实配置）。端到端 `xx <name> --default-scope
+  process` 中英 dry-run 正确。**唯一待真机验证**：macOS rc 文件加载行为（写入逻辑已单测）。**下一步 M4 TUI**：用 `@inquirer/prompts`
+  + 自绘列表搭三级菜单（主菜单排序/记忆选中、动作菜单 toast、编辑表单 + picker + 密钥明文切换 §7、语言切换写回 store.lang）；
+  文本输入走 cooked 模式兼容输入法（评审④）。⚠️ M4 是交互式 TUI，自动化冒烟难覆盖，需在真实终端里人工验证。
 - 2026-06-02（夜，**M2 i18n 基础设施完成**）：`messages.ts`（单目录，偏离原稿双 JSON，理由见 §5）+ `i18n/index.ts`
   （`T`/`setLang`/`resolveLang`/`providerDisplayName`）+ `utils/display.ts`（string-width 对齐）。`index.ts` 现有文案全部
   走 `T()`，官方档显示名中英切换而数据主键 `name` 不变（评审①落到实处）。`_smoke/m2.ts` 20 项全过、`--list --lang en`

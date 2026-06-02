@@ -33,4 +33,36 @@ export const messages: Record<string, Msg> = {
   // —— 错误 ——
   'error.notFound': { zh: '找不到配置：{0}', en: 'Profile not found: {0}' },
   'error.existing': { zh: '现有：{0}', en: 'Existing: {0}' },
+
+  // —— 本次启用（session）——
+  'session.noKey': { zh: '⚠ 配置 [{0}] 还没填密钥。', en: '⚠ Profile [{0}] has no key set.' },
+  'session.launch': {
+    zh: '▶ 本次启用：{0}（仅当前终端，不影响其它终端）',
+    en: '▶ Session: {0} (this terminal only; others unaffected)',
+  },
+  'session.starting': {
+    zh: '正在启动 Claude…（退出 Claude 后回到命令行）',
+    en: 'Launching Claude… (returns here after Claude exits)',
+  },
+  'session.noClaude': { zh: '未找到 claude 命令，请确认它在 PATH 中。', en: 'claude not found on PATH.' },
+
+  // —— 设为默认（default）——
+  'default.writing': { zh: '正在写入用户环境变量…', en: 'Writing user environment variables…' },
+  'default.done': {
+    zh: '✓ 已设为默认：{0}  ·  新开终端裸敲 claude 生效（不影响运行中会话）',
+    en: '✓ Default set: {0}  ·  effective in newly opened terminals (running sessions unaffected)',
+  },
+  'default.dryRun': {
+    zh: '（dry-run：--default-scope process，未改系统，仅更新存储）',
+    en: '(dry-run: --default-scope process; system untouched, store only)',
+  },
+  'default.unixWrote': {
+    zh: '已写入 {0}（新开终端生效；或 source 它立即生效）',
+    en: 'Wrote {0} (effective in new terminals; or source it now)',
+  },
+  'default.failed': { zh: '设为默认失败：{0}', en: 'Failed to set default: {0}' },
+  'default.fishUnsupported': {
+    zh: '⚠ 检测到 fish：v1 暂不支持「设为默认」，请手动设置或改用「本次启用」。',
+    en: '⚠ fish detected: "set default" is unsupported in v1; set manually or use session launch.',
+  },
 };

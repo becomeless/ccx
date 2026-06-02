@@ -16,9 +16,13 @@ import {
   getProviderState,
   loadStore,
   resolveStorePaths,
+  type Provider,
   type ProviderState,
   type Store,
+  type StorePaths,
 } from './config/store.js';
+import { setDefault } from './env/default.js';
+import { sessionLaunch } from './env/session.js';
 import { providerDisplayName, resolveLang, setLang, T } from './i18n/index.js';
 import { padDisplay } from './utils/display.js';
 
@@ -81,11 +85,63 @@ function dispatch(name: string | undefined, opts: GlobalOpts): void {
       process.exitCode = 1;
       return;
     }
-    if (opts.session) stub(`本次启用并启动 claude：${target.name}（--session）`, opts); // M3
-    else stub(`设为默认：${target.name}（default-scope=${opts.defaultScope}）`, opts); // M3
+    if (opts.session) runSession(target);
+    else runDefault(paths, store, target, opts.defaultScope);
     return;
   }
   stub('打开交互菜单（TUI）', opts); // M4
+}
+
+/** 非官方且未填密钥时给黄字提示（对齐现版）。 */
+function warnIfNoKey(p: Provider): void {
+  if (getProviderState(p).key === 'noKey') {
+    console.error(`  ${T('session.noKey', providerDisplayName(p))}`);
+  }
+}
+
+/** 本次启用：套环境 + 启动 claude，阻塞至其退出。 */
+function runSession(p: Provider): void {
+  warnIfNoKey(p);
+  console.log('');
+  console.log(`  ${T('session.launch', providerDisplayName(p))}`);
+  console.log(`  ${T('session.starting')}`);
+  console.log('');
+  const res = sessionLaunch(p);
+  if (res.claudeMissing) {
+    console.error(`  ${T('session.noClaude')}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (res.spawnError) {
+    console.error(`  ${res.spawnError.message}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (typeof res.status === 'number' && res.status !== 0) process.exitCode = res.status;
+}
+
+/** 设为默认：写用户环境变量（或 dry-run）+ 更新 store.current。 */
+function runDefault(paths: StorePaths, store: Store, p: Provider, scope: 'user' | 'process'): void {
+  warnIfNoKey(p);
+  const name = providerDisplayName(p);
+  const r = setDefault(paths, store, p, scope);
+
+  if (r.dryRun) {
+    console.log(`  ${T('default.done', name)}`);
+    console.log(`  ${T('default.dryRun')}`);
+    return;
+  }
+  if (r.windows && !r.windows.ok) {
+    console.error(`  ${T('default.failed', r.windows.error ?? '')}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (r.unix?.unsupported) {
+    console.error(`  ${T('default.fishUnsupported')}`);
+    return;
+  }
+  console.log(`  ${T('default.done', name)}`);
+  if (r.unix) console.log(`  ${T('default.unixWrote', r.unix.file)}`);
 }
 
 /** `--list`：列出所有配置及状态。官方档显示名走 i18n（评审①），其余原样。 */
