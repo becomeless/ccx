@@ -19,6 +19,8 @@ import {
   type ProviderState,
   type Store,
 } from './config/store.js';
+import { providerDisplayName, resolveLang, setLang, T } from './i18n/index.js';
+import { padDisplay } from './utils/display.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { version: string };
@@ -64,6 +66,8 @@ function normalizeOpts(raw: GlobalOpts): GlobalOpts {
 function dispatch(name: string | undefined, opts: GlobalOpts): void {
   const paths = resolveStorePaths(opts.storeDir);
   const store = loadStore(paths);
+  // 语言：--lang > providers.json lang > 环境 > 默认 zh。在产出任何文案前先定好。
+  setLang(resolveLang(opts.lang, store.lang));
 
   if (opts.list) {
     runList(store);
@@ -72,8 +76,8 @@ function dispatch(name: string | undefined, opts: GlobalOpts): void {
   if (name) {
     const target = store.providers.find((p) => p.name === name);
     if (!target) {
-      console.error(`  找不到配置：${name}`);
-      console.error(`  现有：${store.providers.map((p) => p.name).join(', ')}`);
+      console.error(`  ${T('error.notFound', name)}`);
+      console.error(`  ${T('error.existing', store.providers.map((p) => p.name).join(', '))}`);
       process.exitCode = 1;
       return;
     }
@@ -84,51 +88,30 @@ function dispatch(name: string | undefined, opts: GlobalOpts): void {
   stub('打开交互菜单（TUI）', opts); // M4
 }
 
-/** `--list`：列出所有配置及状态。文案为临时中文，M2 接 i18n 后替换。 */
+/** `--list`：列出所有配置及状态。官方档显示名走 i18n（评审①），其余原样。 */
 function runList(store: Store): void {
+  const cur = store.providers.find((p) => p.name === store.current);
   console.log('');
-  console.log(`  默认配置：${store.current}`);
+  console.log(`  ${T('list.default', cur ? providerDisplayName(cur) : store.current)}`);
   for (const p of store.providers) {
     const mark = p.name === store.current ? '▶' : ' ';
     const note = p.note ? `  — ${p.note}` : '';
-    console.log(`   ${mark} ${padDisplay(p.name, 18)}[${stateLabel(getProviderState(p))}]${note}`);
+    console.log(`   ${mark} ${padDisplay(providerDisplayName(p), 18)}[${stateLabel(getProviderState(p))}]${note}`);
   }
   console.log('');
 }
 
-/** 语义状态 → 临时中文文案（M2 改为 i18n.T()）。 */
+/** 语义状态枚举 → 当前语言文案。effort 值两种语言相同，原样附加。 */
 function stateLabel(s: ProviderState): string {
   const base =
     s.key === 'official'
-      ? '登录态'
+      ? T('state.login')
       : s.key === 'noKey'
-        ? '密钥未填'
+        ? T('state.noKey')
         : s.key === 'apiKey'
-          ? '密钥·API_KEY'
-          : '密钥已设';
+          ? T('state.apiKey')
+          : T('state.hasKey');
   return s.effort ? `${base} · effort=${s.effort}` : base;
-}
-
-/** 按显示宽度右侧补空格（CJK=2，半角=1）。M2 会换成基于 string-width 的工具。 */
-function padDisplay(s: string, width: number): string {
-  let w = 0;
-  for (const ch of s) {
-    const c = ch.codePointAt(0) ?? 0;
-    w += isWide(c) ? 2 : 1;
-  }
-  return w < width ? s + ' '.repeat(width - w) : s;
-}
-
-function isWide(c: number): boolean {
-  return (
-    (c >= 0x1100 && c <= 0x115f) ||
-    (c >= 0x2e80 && c <= 0xa4cf) ||
-    (c >= 0xac00 && c <= 0xd7a3) ||
-    (c >= 0xf900 && c <= 0xfaff) ||
-    (c >= 0xfe30 && c <= 0xfe4f) ||
-    (c >= 0xff00 && c <= 0xff60) ||
-    (c >= 0xffe0 && c <= 0xffe6)
-  );
 }
 
 function stub(what: string, opts: GlobalOpts): void {

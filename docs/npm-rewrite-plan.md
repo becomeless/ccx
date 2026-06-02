@@ -209,6 +209,12 @@ Node 里统一用 `os.homedir()`。可被 `--store-dir` 覆盖（测试用）。
 
 ## 5. i18n 设计（中英文切换）
 
+> **实现偏离（2026-06-02，M2 已落地）**：本节原稿设想 `zh.json` + `en.json` 两个文件，实际改为**单个
+> `src/i18n/messages.ts`**（`key → { zh, en }`）。原因：tsc 不会把 JSON 拷进 dist，需额外构建步骤 + import 断言的
+> 跨 Node 版本坑；单 TS 目录零文件 IO、中英同处一行不易漏翻。**Go 复用不受影响**——一行 `JSON.stringify(messages)`
+> 即可导出双语 JSON。`T()` / `resolveLang` / `setLang` / `providerDisplayName` 在 `src/i18n/index.ts`；
+> CJK 宽度对齐在 `src/utils/display.ts`（基于 `string-width`）。下面的 JSON 示例仅作 key 命名参考。
+
 - `src/i18n/zh.json` + `src/i18n/en.json`：两个扁平 JSON，key 相同，值是对应语言文案。
   ```json
   // zh.json
@@ -376,7 +382,12 @@ npm publish
   - [x] `src/config/presets.ts`：`BUILTIN_PRESETS` 常量(镜像 presets.json) + `loadPresets`(用户 `~/.cc-mini/presets.json` > 包内 presets.json > 内置兜底；坏 json 安静跌落)。
   - [x] `index.ts` 改从数据层 import；`--list` 接真实 store（CJK 对齐、状态文案与现版一致）；`xx <不存在>` 报错并 exit 1。文案仍临时中文，待 M2 接 i18n。
   - [x] 编译 + `_smoke/m1.ts` 冒烟（gitignored）：默认生成、UTF-8 无 BOM 往返、旧文件无 builtin 容错、状态枚举、buildProviderEnv 按序丢空 + 保 `[1m]`、resolveUniqueName、presets 三级加载全过。
-- [ ] **M2 i18n**：`i18n/zh.json` + `i18n/en.json` + `T()`；抽离全部字符串（zh 先全，en 跟上）；`string-width` 对齐
+- [x] **M2 i18n**（基础设施完成，2026-06-02；`_smoke/m2.ts` 20 项断言全过、`tsc` 干净、`--list` 中英实跑正确）：
+  - [x] `src/i18n/messages.ts`（单目录 key→{zh,en}，见 §5 实现偏离）+ `src/i18n/index.ts`：`T(key,...args)`（占位符 `{0}`、缺 key 回退 key 本身）、
+        `setLang`/`getLang`、`resolveLang`(--lang > store.lang > 环境 LANG > 默认 zh)、`providerDisplayName`(官方档显示名走 i18n，评审①)。
+  - [x] `src/utils/display.ts`：`displayWidth`/`padDisplay` 基于 `string-width`，替换手写码点判断。
+  - [x] `index.ts` 现有文案（list/state/error + 默认标签）全部走 `T()`；官方档中英显示名切换、数据主键 `name` 不变。
+  - [ ] **留待 M4/M5**：菜单/表单文案（M4 写时即用 `T()`）；commander `--help`/option 描述的 i18n（M5 收尾）；主菜单「语言切换」项 + 写回 `store.lang`（M4）。
 - [ ] **M3 两模式**：`env/session.ts`（spawn claude，inherit stdio）；`env/default.ts` + `env/persist-windows.ts`（PS 子进程注册表+广播）+ `env/persist-unix.ts`（rc marker 块）。先做 CLI 路径（`xx <name>` / `-s` / `--list`）跑通
 - [ ] **M4 TUI**：Ink 主菜单（含排序/记忆选中/状态文案）、动作菜单（toast/停留语义）、编辑表单 + 各 picker、非交互回退
 - [ ] **M5 CLI 收尾**：`--lang` / `--version` / `--help` / `--store-dir` / `--default-scope`，与现版行为对齐
@@ -405,6 +416,12 @@ npm publish
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-02（夜，**M2 i18n 基础设施完成**）：`messages.ts`（单目录，偏离原稿双 JSON，理由见 §5）+ `i18n/index.ts`
+  （`T`/`setLang`/`resolveLang`/`providerDisplayName`）+ `utils/display.ts`（string-width 对齐）。`index.ts` 现有文案全部
+  走 `T()`，官方档显示名中英切换而数据主键 `name` 不变（评审①落到实处）。`_smoke/m2.ts` 20 项全过、`--list --lang en`
+  实跑正确（`Default: Official` / `Logged in` / `No key`）。**下一步 M3 两种启用模式**：`env/session.ts`（spawn claude，
+  inherit stdio；Windows 注意 `claude.cmd` + which 解析，评审②）、`env/default.ts` + `persist-windows.ts`（`powershell.exe`
+  注册表+单次广播，评审③）+ `persist-unix.ts`（rc marker 块）。先把 CLI 路径 `xx <name>` / `-s` 跑通（目前是桩）。
 - 2026-06-02（晚，**M1 完成**）：`types.ts` + `store.ts` + `presets.ts` 全部落地，`index.ts` 接通 `--list`。
   `tsc` 干净、`_smoke/m1.ts` 21 项断言全过、构建产物实跑 `--list` 正确。关键实现决策：`isOfficial` 用
   **builtin 优先、`name==='官方'` 兜底**（放弃 plan 原稿的「env 为空」判定，理由见 §1.5①）；`getProviderState` 只返回**语义枚举**
