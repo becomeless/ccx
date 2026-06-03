@@ -96,12 +96,6 @@ npm link    # then `xx` is available
 
 **Open a new terminal afterwards.**
 
-> **Migrating from the old PowerShell edition?** If you previously ran `install.ps1`, the old `xx`
-> function in your `$PROFILE` takes precedence over the npm command. After installing the npm edition,
-> delete the marker block from `# >>> xx >>>` through `# <<< xx <<<` in `$PROFILE`; if you also installed
-> the PSGallery module, run `Uninstall-Module ccx -AllVersions`. Open a new terminal and verify with `xx --version`.
-> Your existing `~/.cc-mini/providers.json` is reused, so profiles and keys are preserved.
-
 ## Quick start
 
 1. Open a new terminal and run `xx`. On first run it creates 4 default profiles in
@@ -304,9 +298,7 @@ not support it. DeepSeek recommends `max`; leave others empty.
 - Remove the tool itself:
   - `npm uninstall -g @cc-x/cc-x`;
   - on macOS / Linux, also remove the `# >>> xx >>>` marker block from your shell startup file
-    if you ever used "Set as default";
-  - Windows users migrating from the old PowerShell edition can also delete the `# >>> xx >>>`
-    marker block from `$PROFILE` and run `Uninstall-Module ccx -AllVersions`.
+    if you ever used "Set as default".
 - Delete the data dir `~/.cc-mini/`.
 
 ## Philosophy

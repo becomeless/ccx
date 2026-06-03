@@ -10,7 +10,6 @@ official account and third-party Anthropic-compatible APIs (DeepSeek, 智谱GLM,
 The maintained edition is the npm/TypeScript package `@cc-x/cc-x` (command still `xx`) for
 Windows / macOS / Linux. Source is under `src/`, builds to `dist/` via `tsc`, and ships through npm.
 
-The old PowerShell edition is archived in Git tags such as `v0.2.3`; it is no longer kept on `main`.
 Before changing the npm edition, read `docs/npm-rewrite-plan.md`; it is the implementation source of
 truth. `@cc-x/cc-x@0.3.0` was first published on 2026-06-02.
 

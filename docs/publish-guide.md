@@ -119,7 +119,7 @@ npm publish
 git push origin main --tags
 ```
 
-> 注意：npm 版的版本号在 `package.json`。旧 PowerShell 版已从 `main` 移除，归档在历史 tag 中，不再维护发版。
+> 注意：npm 版的版本号在 `package.json`。`main` 只维护 npm 版。
 
 ---
 
@@ -129,9 +129,6 @@ git push origin main --tags
   没建组织就发会报 404 / 403。建组织见 §0。
 - **版本不可变**：一旦 `@cc-x/cc-x@0.3.0` 发出去，就不能再用 `0.3.0` 这个号发不同内容。发错了只能：72 小时内
   `npm unpublish @cc-x/cc-x@0.3.0` 撤回，或 `npm deprecate @cc-x/cc-x@0.3.0 "说明"` 标记弃用，然后发 `0.3.1`。
-- **Windows 旧版迁移**：如果 `$PROFILE` 里还有老 `xx` 函数，它会优先于 npm 命令。安装 npm 版后，从 `$PROFILE`
-  删掉 `# >>> xx >>>` 到 `# <<< xx <<<` 的标记块；如果还装过 PSGallery 模块，再执行
-  `Uninstall-Module ccx -AllVersions`。新开终端即可；原有 `~/.cc-mini/providers.json` 会继续沿用。
 - **macOS / Linux 尚未真机大规模验证**：「本次启用」全平台一致没问题；「设为默认」写 rc 文件的逻辑只跑过单测。
   首发后若有 mac/linux 用户，留意反馈。要更稳妥，可以先找一台 mac 实测「设为默认」再大力推。
 - **2FA OTP 过期**：publish 时 OTP 有时效，输慢了会失败，重新跑 `npm publish` 再输新码即可。

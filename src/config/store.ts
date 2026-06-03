@@ -74,7 +74,7 @@ export function defaultStore(): Store {
 /**
  * 把任意解析结果规整为合法 Store。
  *
- * 字段级**宽松容错**（缺 lang / 缺 note / 缺 builtin / 缺 env 都不报错），保证老用户文件零迁移；
+ * 字段级**宽松容错**（缺 lang / 缺 note / 缺 builtin / 缺 env 都不报错），保持既有数据格式兼容；
  * 但结构级**严格校验**：顶层必须是对象、`providers` 必须是数组、每个配置的 name/env 结构必须合法
  * —— 否则抛 StoreError('format')。
  * 这是为了堵住「语法合法但结构损坏的 JSON 被静默规整成空 providers、用户一保存就覆盖丢数据」的坑（[P1]）。

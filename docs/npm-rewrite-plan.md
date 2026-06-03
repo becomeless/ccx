@@ -23,12 +23,12 @@
 |---|---|---|
 | 语言 | **TypeScript**（Node.js ≥18） | 与 Claude Code 同生态；npm 分发零摩擦；用户必有 Node.js |
 | 菜单 UI | **全自绘 ANSI 列表（raw keypress）+ cooked readline 文本输入**（不上 Ink，**也弃用 inquirer**） | M4 实测：inquirer 的 readline 与自绘菜单的 raw 模式抢 stdin、收不到按键。改回 PS 原版双机制：菜单/ASCII 字段走 raw keypress（同一套，验证可用），中文字段走 `node:readline` cooked 模式（兼容输入法，评审④）。同一时刻只跑一套，互不干扰。Ink/inquirer 均不采用 |
-| JSON | 原生 `JSON.parse`/`stringify` | `providers.json` / `presets.json` 格式**保持不变**，老用户零迁移 |
+| JSON | 原生 `JSON.parse`/`stringify` | `providers.json` / `presets.json` 格式保持稳定 |
 | presets 兜底 | **`src/config/presets.ts` 的 `BUILTIN_PRESETS` 常量** | 等价于现 `$BuiltinPresetsJson`；加载优先级 **用户 `~/.cc-mini/presets.json` > 包内 `presets.json` > 内置常量**（评审⑤） |
 | i18n | **单文件 `src/i18n/messages.ts`**（`key→{zh,en}`），逻辑层禁止硬编码中文 | 实际未用双 JSON（tsc 不拷 JSON 到 dist、import 断言跨版本坑）；中英同处一行，便于维护与审阅，详见 §5 偏离说明 |
 | 首版平台 | **Windows / macOS / Linux 同时** | npm 没有平台编译差异，天然全平台 |
 | 分发 | **npm registry**（`npm install -g @cc-x/cc-x`） | 一条命令装好，一条命令更新，零自建分发 |
-| 主线 | `main` 只维护 npm/TypeScript 版；旧 PowerShell 版通过历史 tag 归档 | 避免两套实现长期并行 |
+| 主线 | `main` 只维护 npm/TypeScript 版 | 避免两套实现长期并行 |
 
 仓库：`github.com/becomeless/cc-x`（origin，HTTPS）。`gh` CLI 可用（v2.90）。
 
@@ -447,7 +447,7 @@ npm publish
 
 - 2026-06-03（**主线收口为 npm-only**）：创建 GitHub Release `v0.3.0` 并设为 Latest；`main`
   删除旧 PowerShell 版文件（`xx.ps1` / `install.ps1` / `ccx.psm1` / `ccx.psd1` / `publish-psgallery.ps1`）
-  和已放弃的 Go 方案文档（`docs/go-rewrite-plan.md`）。旧版仍可通过历史 tag（如 `v0.2.3`）查阅，不再在主线维护。
+  和已放弃的 Go 方案文档（`docs/go-rewrite-plan.md`）。`main` 不再保留旧版入口。
 - 2026-06-02（**包名改作用域 `@cc-x/cc-x`**）：实测 `npm publish` 时 `cc-x` 被 npm **相似名规则**以
   E403「too similar to existing package ccx」拒绝（连字符去掉后归一化=`ccx`，撞已存在的 `ccx@1.0.0`）。
   当初"`cc-x` 已确认可用"是误判——`npm view cc-x` 报 404 测不出相似名规则。改用**作用域包 `@cc-x/cc-x`**
