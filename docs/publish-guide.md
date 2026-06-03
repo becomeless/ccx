@@ -95,8 +95,7 @@ npm view @cc-x/cc-x             # 能看到 0.3.0、文件列表等
 1. **真机装一遍**（最好新开一个干净终端）：
    ```bash
    npm install -g @cc-x/cc-x
-   # 在没有 PS xx 函数的环境里：xx --version
-   # 在你这台被 PS 函数占用的 Windows 机器上：cmd /c xx --version
+   xx --version
    ```
 2. **打 git tag 并推送**（对齐版本号，便于追溯）：
    ```bash
@@ -120,8 +119,7 @@ npm publish
 git push origin main --tags
 ```
 
-> 注意：**npm 版的版本号在 `package.json`**；**PowerShell 版的版本号在 `xx.ps1` 的 `$script:Version` 和
-> `ccx.psd1` 的 `ModuleVersion`**——两条线各自独立，发哪条就只动哪条。PS 版发 PSGallery 的流程见现有发版习惯。
+> 注意：npm 版的版本号在 `package.json`。旧 PowerShell 版已从 `main` 移除，归档在历史 tag 中，不再维护发版。
 
 ---
 
@@ -144,8 +142,8 @@ git push origin main --tags
 
 | 我能做 | 你来做（我做不了） |
 |---|---|
-| 跑检查清单（typecheck/build/`npm pack --dry-run`）、修问题、改包名/文档 | `npm login`（你的账号密码 / 2FA） |
-| 升版本号、改 README、打 tag 的命令 | 创建 npm 组织 `cc-x`、最终 `npm publish` 的点头与 OTP |
-| 发布后帮你验证 `npm view` / 装包测试 | 注册 npm 账号、开 2FA 或准备 granular token |
+| 跑检查清单（typecheck/build/`npm pack --dry-run`）、修问题、改文档 | `npm login`（你的账号密码 / 2FA） |
+| 升版本号、打 tag、创建 GitHub Release | 最终 `npm publish` 的点头与 OTP |
+| 发布后帮你验证 `npm view` / 装包测试 | 维护 npm 账号 2FA 或 granular token |
 
 `@cc-x/cc-x@0.3.0` 已完成首发。以后发新版本，从 §4 升版本号开始，再走 §1 检查与 §2 发布。

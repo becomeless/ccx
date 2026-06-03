@@ -1,12 +1,10 @@
 # ccx → npm/TypeScript 重写：交接文档 / 任务清单
 
 > 本文件是 **跨上下文窗口的唯一事实来源（source of truth）**。
-> 接手时先读完本文，再读 `CLAUDE.md`，然后看 `xx.ps1`（被复刻的原始实现）。
+> 接手时先读完本文，再读 `AGENTS.md`，然后看 `src/` 当前实现。
 > 每完成一个里程碑，回来勾选下方 checklist 并补充「已知问题 / 进度笔记」。
 >
-> ⚠️ 长期方向仍是「npm + Go 二进制双线」——`docs/go-rewrite-plan.md` 保留不动，
->   将来 Go 版以此为据。npm 版先行，验证跨平台设计 + i18n + 真实反馈，Go 版后续
->   把验证过的设计移植过去、水到渠成。
+> 本文件现在是 npm/TypeScript 版的实施记录与维护来源。Go 二进制方案已放弃并从 `main` 移除。
 
 ---
 
@@ -27,10 +25,10 @@
 | 菜单 UI | **全自绘 ANSI 列表（raw keypress）+ cooked readline 文本输入**（不上 Ink，**也弃用 inquirer**） | M4 实测：inquirer 的 readline 与自绘菜单的 raw 模式抢 stdin、收不到按键。改回 PS 原版双机制：菜单/ASCII 字段走 raw keypress（同一套，验证可用），中文字段走 `node:readline` cooked 模式（兼容输入法，评审④）。同一时刻只跑一套，互不干扰。Ink/inquirer 均不采用 |
 | JSON | 原生 `JSON.parse`/`stringify` | `providers.json` / `presets.json` 格式**保持不变**，老用户零迁移 |
 | presets 兜底 | **`src/config/presets.ts` 的 `BUILTIN_PRESETS` 常量** | 等价于现 `$BuiltinPresetsJson`；加载优先级 **用户 `~/.cc-mini/presets.json` > 包内 `presets.json` > 内置常量**（评审⑤） |
-| i18n | **单文件 `src/i18n/messages.ts`**（`key→{zh,en}`），逻辑层禁止硬编码中文 | 实际未用双 JSON（tsc 不拷 JSON 到 dist、import 断言跨版本坑）；一行 `JSON.stringify` 即可导出双语 JSON 供 Go 复用，详见 §5 偏离说明 |
+| i18n | **单文件 `src/i18n/messages.ts`**（`key→{zh,en}`），逻辑层禁止硬编码中文 | 实际未用双 JSON（tsc 不拷 JSON 到 dist、import 断言跨版本坑）；中英同处一行，便于维护与审阅，详见 §5 偏离说明 |
 | 首版平台 | **Windows / macOS / Linux 同时** | npm 没有平台编译差异，天然全平台 |
 | 分发 | **npm registry**（`npm install -g @cc-x/cc-x`） | 一条命令装好，一条命令更新，零自建分发 |
-| 过渡 | 重写期间 `xx.ps1` **原样保留不动**，npm 版验证 OK 再主推 | 降低风险 |
+| 主线 | `main` 只维护 npm/TypeScript 版；旧 PowerShell 版通过历史 tag 归档 | 避免两套实现长期并行 |
 
 仓库：`github.com/becomeless/cc-x`（origin，HTTPS）。`gh` CLI 可用（v2.90）。
 
@@ -216,7 +214,7 @@ Node 里统一用 `os.homedir()`。可被 `--store-dir` 覆盖（测试用）。
 
 > **实现偏离（2026-06-02，M2 已落地）**：本节原稿设想 `zh.json` + `en.json` 两个文件，实际改为**单个
 > `src/i18n/messages.ts`**（`key → { zh, en }`）。原因：tsc 不会把 JSON 拷进 dist，需额外构建步骤 + import 断言的
-> 跨 Node 版本坑；单 TS 目录零文件 IO、中英同处一行不易漏翻。**Go 复用不受影响**——一行 `JSON.stringify(messages)`
+> 跨 Node 版本坑；单 TS 目录零文件 IO、中英同处一行不易漏翻。需要外部审阅或同步时，一行 `JSON.stringify(messages)`
 > 即可导出双语 JSON。`T()` / `resolveLang` / `setLang` / `providerDisplayName` 在 `src/i18n/index.ts`；
 > CJK 宽度对齐在 `src/utils/display.ts`（基于 `string-width`）。下面的 JSON 示例仅作 key 命名参考。
 
@@ -232,7 +230,7 @@ Node 里统一用 `os.homedir()`。可被 `--store-dir` 覆盖（测试用）。
 - 语言来源优先级：`--lang en` 参数 > `providers.json` 的 `lang` 字段 > 环境 `LC_ALL`/`LANG`（含 `zh` 视为中文）> 默认 `zh`。
 - 主菜单加一项「语言 / Language」即时切换并存盘（写回 `lang` 字段）。
 - **所有 user-facing 字符串都走 `T()`**；提交前 grep 确认逻辑层无裸中英文硬编码。
-- **这套 JSON 将来 Go 版可直接 `embed` 复用**——npm 版的 i18n 投入不会浪费。
+- 需要时可从 `messages.ts` 导出双语 JSON 快照，供文案审阅或外部工具消费。
 - CJK 宽度对齐：用 `string-width`（npm 包，封装了 `eastasianwidth`）处理全角=2 半角=1。
 - ⚠️ **两个跨语言真陷阱见 §1.5 ①④**：①数据层 `"官方"` sentinel 与主键冲突（要拆 `builtin` 标识）；
   ④文本输入必须走 cooked 模式兼容中文输入法。i18n 不止是「UI 字符串抽 JSON」，这两条才是难点。
@@ -334,9 +332,8 @@ ccx/
       display.ts              // displayWidth / padDisplay / truncateDisplay（基于 string-width）
       ansi.ts                 // 颜色 + 光标 + CLEAR_SCREEN（零依赖）
   presets.json                // 供应商目录（随包发布）
-  xx.ps1                      // 过渡期保留，勿动
   _smoke/                     // gitignored 冒烟脚本（m1–m3、m5fix），开发期验证用
-  docs/{go,npm}-rewrite-plan.md
+  docs/npm-rewrite-plan.md
 ```
 
 依赖（运行时仅 3 个，**无 Ink/react/chalk/inquirer**）：
@@ -417,12 +414,12 @@ npm publish
       README 更新安装说明（`npm install -g @cc-x/cc-x`）；`npm update -g @cc-x/cc-x` 更新说明。详见 `docs/publish-guide.md`。
       **已于 2026-06-02 首发成功**（`@cc-x/cc-x@0.3.0`，registry 可见，`v0.3.0` tag 已指向发布提交）。
 - [x] **M7 文档**（完成，2026-06-02）：
-  - [x] `README.md` / `README.en.md`：npm 全平台版为主（`npm i -g @cc-x/cc-x`）+ PowerShell 旧版备选；环境要求改 Node≥18；
+  - [x] `README.md` / `README.en.md`：npm 全平台版为主（`npm i -g @cc-x/cc-x`）；环境要求改 Node≥18；
         CLI 用 `-s/--list/--lang/--help`；菜单加「🌐 语言切换」；「设为默认」改成跨平台（Win 注册表 / Unix rc 块）；卸载/数据位置同步；presets 用户目录覆盖。
   - [x] `CLAUDE.md`（本地未跟踪）：补「两条并行 edition」说明 + npm 版构建/测试命令 + 指向 plan。
   - [x] `docs/publish-guide.md`：M6 发布手把手教程（npm 账号/2FA、检查清单、`npm pack --dry-run`、publish、打 tag、后续发版、坑）。
   - [x] 版本号去 alpha → `0.3.0`。`npm pack --dry-run` 预览干净（24 文件，无密钥/node_modules/src）。
-  - [ ] 可选 follow-up：正式测试框架替代 `_smoke/`；xx.ps1 保留至 npm 版稳定。
+  - [ ] 可选 follow-up：正式测试框架替代 `_smoke/`。
 
 ---
 
@@ -441,13 +438,16 @@ npm publish
   cooked 文本输入。原因：inquirer 的 readline 与自绘菜单的 raw 模式抢 stdin。详见决策表 + §7 + §12。
 - **非交互 fallback 小限**：`ui/select.ts` 的非交互回退重复 `createInterface` 读管道会丢缓冲（真实 TTY 不受影响）。低优先 polish。
 - **Windows 注册表持久化**：当前方案走 PowerShell 子进程（Windows 上必然存在），干净无原生依赖。若未来想摘掉，可选 `node-ffi` 或 `.node` addon。
-- **版本号**：现版在 `xx.ps1` 的 `$script:Version` 与 `ccx.psd1` 的 ModuleVersion 两处。npm 版用 `package.json` 的 `version` 字段（npm 标准）。发版流程见 memory `ccx-release-workflow`。
+- **版本号**：npm 版用 `package.json` 的 `version` 字段（npm 标准）。
 - **Node.js 版本**：Claude Code 要求 Node ≥18，`ccx` 跟随这个下限。
 
 ---
 
 ## 12. 进度笔记（每次接手在此追加，倒序）
 
+- 2026-06-03（**主线收口为 npm-only**）：创建 GitHub Release `v0.3.0` 并设为 Latest；`main`
+  删除旧 PowerShell 版文件（`xx.ps1` / `install.ps1` / `ccx.psm1` / `ccx.psd1` / `publish-psgallery.ps1`）
+  和已放弃的 Go 方案文档（`docs/go-rewrite-plan.md`）。旧版仍可通过历史 tag（如 `v0.2.3`）查阅，不再在主线维护。
 - 2026-06-02（**包名改作用域 `@cc-x/cc-x`**）：实测 `npm publish` 时 `cc-x` 被 npm **相似名规则**以
   E403「too similar to existing package ccx」拒绝（连字符去掉后归一化=`ccx`，撞已存在的 `ccx@1.0.0`）。
   当初"`cc-x` 已确认可用"是误判——`npm view cc-x` 报 404 测不出相似名规则。改用**作用域包 `@cc-x/cc-x`**
@@ -466,8 +466,9 @@ npm publish
 - 2026-06-02（**M6 发布前复核收口**）：补齐官方档降级边界（旧数据名称兜底收紧为 `name==='官方' && env为空`）；
   删除当前默认配置后回退到剩余官方档/第一项；`package.json bin.xx` 去掉 npm 会自动清理的 `./` 前缀；发布教程修正
   `cc-x --version` 命令名混淆、把 2FA / bypass-2FA granular token 写成发布必备条件；铁律统一精确为「不写 Claude Code 配置文件」。
-- 2026-06-02（**M7 文档完成 + 版本定 0.3.0**）：README 中英双版改成「npm 全平台版为主 + PS 旧版备选」（安装/环境/CLI/菜单语言项/
-  设为默认跨平台/卸载/数据位置/presets 用户覆盖全部同步）；CLAUDE.md 补双 edition 说明；新增 `docs/publish-guide.md`（M6 发布手把手）。
+- 2026-06-02（**M7 文档完成 + 版本定 0.3.0**）：README 中英双版当时改成「npm 全平台版为主 + 旧 PowerShell 入口备选」
+  （后续主线已收口为 npm-only）；安装/环境/CLI/菜单语言项/设为默认跨平台/卸载/数据位置/presets 用户覆盖全部同步；
+  CLAUDE.md 补双 edition 说明；新增 `docs/publish-guide.md`（M6 发布手把手）。
   版本 `0.3.0-alpha.0`→`0.3.0`，`npm pack --dry-run` 包内容干净（24 文件）。**当时只剩 M6**：用户准备好 npm 账号后照 publish-guide 发布
   （`npm login` + `npm publish` 需用户亲自做，对外不可逆）。
 - 2026-06-02（**M5 完成**）：help i18n（parse 前 `peekArg`+`peekStoreLang` 定语言，commander 全文案走 `T()`，`--help` 中英实测正确）

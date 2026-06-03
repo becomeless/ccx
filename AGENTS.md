@@ -7,13 +7,10 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 `ccx` is a Claude Code API switcher (terminal command: `xx`). It switches Claude Code between the
 official account and third-party Anthropic-compatible APIs (DeepSeek, 智谱GLM, 小米MiMo, …).
 
-There are two editions during the transition period:
+The maintained edition is the npm/TypeScript package `@cc-x/cc-x` (command still `xx`) for
+Windows / macOS / Linux. Source is under `src/`, builds to `dist/` via `tsc`, and ships through npm.
 
-- **npm/TypeScript edition** (`@cc-x/cc-x`, command still `xx`) — the current cross-platform edition
-  for Windows / macOS / Linux. Source is under `src/`, builds to `dist/` via `tsc`, and ships through npm.
-- **PowerShell edition** (`xx.ps1`) — the original Windows edition, retained while the npm edition
-  settles. Keep its behavior intact unless a task explicitly targets it.
-
+The old PowerShell edition is archived in Git tags such as `v0.2.3`; it is no longer kept on `main`.
 Before changing the npm edition, read `docs/npm-rewrite-plan.md`; it is the implementation source of
 truth. `@cc-x/cc-x@0.3.0` was first published on 2026-06-02.
 
@@ -27,8 +24,8 @@ default environment. Any change that writes a Claude Code config file is out of 
 — see the "设计原则与初心" section of `README.md`. When in doubt, prefer the change that keeps the tool
 *simpler*, not more capable.
 
-It only ever touches these 7 "managed" environment variables (`KNOWN_KEYS` in `src/config/types.ts`;
-`$script:KnownKeys` in `xx.ps1`), and clears the ones a target profile doesn't use:
+It only ever touches these 7 "managed" environment variables (`KNOWN_KEYS` in `src/config/types.ts`),
+and clears the ones a target profile doesn't use:
 
 ```
 ANTHROPIC_BASE_URL  ANTHROPIC_AUTH_TOKEN  ANTHROPIC_API_KEY
@@ -41,7 +38,7 @@ and the three `*_MODEL` mapping vars translate `opus`/`sonnet`/`haiku` to each p
 
 ## Two activation modes (core concept)
 
-These two actions are the heart of both editions:
+These two actions are the heart of the tool:
 
 - **"本次启用"** — launches `claude` with managed vars applied only to the child process. Ephemeral;
   multiple terminals can use different APIs in parallel without interfering.
@@ -49,8 +46,8 @@ These two actions are the heart of both editions:
   in the registry, or an isolated marker block in a Unix shell startup file. Running sessions are
   unaffected because env vars freeze at process start.
 
-The PowerShell edition implements these as `Session-Launch` / `Set-Default`. The npm edition uses
-`src/env/session.ts` / `src/env/default.ts`; its `--default-scope process` option exists only for tests.
+The npm edition implements them in `src/env/session.ts` / `src/env/default.ts`; its
+`--default-scope process` option exists only for tests.
 
 ## Files
 
@@ -60,56 +57,36 @@ The PowerShell edition implements these as `Session-Launch` / `Set-Default`. The
   entry is `{ name, auth, urls:[{label,url}], models:{opus,sonnet,haiku}, effort? }`. Picking a provider
   auto-fills the profile's base URL (a chooser appears if it has multiple `urls`, e.g. an API endpoint vs
   a token-plan endpoint) plus the recommended model mappings and auth field. Add an entry here to offer
-  a new provider, no code change needed. Both editions have built-in fallbacks.
-- `xx.ps1` — the self-contained legacy PowerShell application.
-- `install.ps1` — registers an `xx` function in the user's PowerShell `$PROFILE`, wrapped in
-  `# >>> xx >>>` / `# <<< xx <<<` markers (idempotent; also strips a legacy `ccswitch` block).
-- `ccx.psm1` / `ccx.psd1` — thin PowerShell Gallery module wrapper. `xx` runs `xx.ps1` in a *separate*
-  `pwsh -NoProfile` subprocess so session-scoped env vars never leak into the caller's shell.
-- `publish-psgallery.ps1` — publishes to PowerShell Gallery.
+  a new provider, no code change needed. The npm edition has built-in fallbacks.
 - `README.md` / `README.en.md` — keep these in sync; they are the primary user docs.
 
 ## Runtime data (not in repo)
 
 - `~/.cc-mini/providers.json` — user's profiles, **including plaintext keys**. Created on first run from
   built-in defaults (官方 + DeepSeek + 智谱GLM + 小米MiMo, keys empty). The npm edition reads/writes it via
-  `loadStore` / `saveStore`; the legacy edition uses `Get-Store` / `Save-Store`. Never commit this.
+  `loadStore` / `saveStore`. Never commit this.
 
 ## Common commands
 
 ```powershell
-# npm edition: build, verify, run
+# Build, verify, run
 npm run typecheck
 npm run build
 node .\dist\index.js --version
 node .\dist\index.js --list
 
-# Published npm edition
+# Published package
 npm install -g @cc-x/cc-x
 xx --version
-
-# Legacy PowerShell edition: run without installing
-pwsh -File .\xx.ps1
-pwsh -File .\xx.ps1 DeepSeek
-pwsh -File .\xx.ps1 DeepSeek -Session
-pwsh -File .\xx.ps1 -List
-
-# Legacy PowerShell edition: install into $PROFILE
-pwsh -ExecutionPolicy Bypass -File .\install.ps1
-
-# Publish to PowerShell Gallery (prefers Publish-PSResource to avoid a PowerShellGet 2.x
-# localization bug; bump ModuleVersion in ccx.psd1 first)
-pwsh -File .\publish-psgallery.ps1 -ApiKey <key>
 ```
 
 The npm edition has gitignored smoke scripts under `_smoke/`; run the relevant scripts with
 `npx tsx _smoke/<script>.ts` when changing shared behavior. Always run `npm run typecheck` and
-`npm run build`. For legacy-only changes, verify by running `xx.ps1` directly.
+`npm run build`.
 
 ## Conventions
 
-- The npm edition targets **Node.js 18+** and Windows / macOS / Linux; the legacy edition targets
-  **PowerShell 7+** and is primarily validated on Windows.
+- The maintained edition targets **Node.js 18+** and Windows / macOS / Linux.
 - All file writes use UTF-8 **without BOM**; match this when writing JSON, `$PROFILE`, or Unix rc blocks.
 - The npm UI supports zh/en i18n; keep `README.md` / `README.en.md` in sync.
 - Terminology: a saved entry is a **配置 (profile)**; the `presets.json` catalog entries are **供应商

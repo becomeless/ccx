@@ -2,8 +2,8 @@
  * i18n 消息目录：key → { zh, en }。
  *
  * 设计取舍（偏离 plan §5 原稿的「两个 JSON 文件」）：用单个 TS 目录更简单——tsc 无需额外拷贝 JSON 到 dist、
- * 无 import 断言/运行时文件 IO 的跨 Node 版本坑、中英同处一行不易漏翻。将来若 Go 版要复用，
- * 一行 `JSON.stringify(messages)` 即可导出双语 JSON，投入不浪费。
+ * 无 import 断言/运行时文件 IO 的跨 Node 版本坑、中英同处一行不易漏翻；需要时也可
+ * 一行 `JSON.stringify(messages)` 导出双语 JSON 供文案审阅。
  *
  * 约定：所有 user-facing 字符串都走 i18n 的 `T()`；逻辑层不得裸写中文（注释除外）。
  * 占位符用 `{0}` `{1}` …，由 `T(key, ...args)` 按序替换。

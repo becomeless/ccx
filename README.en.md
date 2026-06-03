@@ -13,7 +13,7 @@ same time, without interfering with one another**.
 
 > 🌍 **Cross-platform:** one `npm install -g @cc-x/cc-x` installs it on **Windows / macOS / Linux**
 > (the command is still `xx`; the npm package is `@cc-x/cc-x`), with a built-in **English / Chinese
-> UI toggle**. A PowerShell edition is still available on Windows (see [Install](#install)).
+> UI toggle**.
 
 ---
 
@@ -67,18 +67,15 @@ place, or prefer an all-in-one tool.
 
 ## Requirements
 
-- **Node.js ≥ 18** — needed by the cross-platform npm edition (`cc-x`). Claude Code itself
+- **Node.js ≥ 18** — needed by the cross-platform npm edition (`@cc-x/cc-x`). Claude Code itself
   depends on Node, so you most likely already have it.
 - **Claude Code installed (`claude` on PATH)** — "Use this session" launches `claude`.
-- *(optional, legacy)* PowerShell 7+ — the PowerShell edition is still offered on Windows.
 
 > Fully verified on **Windows**; "Set as default" on **macOS / Linux** (writing the shell
 > startup file) is the new cross-platform capability, while "Use this session" is identical
 > everywhere. Feedback on other platforms is welcome.
 
 ## Install
-
-**Option 1: npm (recommended, cross-platform)**
 
 ```bash
 npm install -g @cc-x/cc-x
@@ -87,24 +84,14 @@ npm install -g @cc-x/cc-x
 Then type `xx` in any terminal. Update with `npm update -g @cc-x/cc-x`; remove with
 `npm uninstall -g @cc-x/cc-x`. (The npm package is `@cc-x/cc-x`; the terminal command is `xx`.)
 
-**Option 2: PowerShell Gallery (Windows, legacy)**
-
-```powershell
-Install-Module ccx
-```
-
-Then type `xx` in any terminal (the module auto-loads). Update with `Update-Module ccx`;
-remove with `Uninstall-Module ccx`.
-
-**Option 3: from source (dev / custom)**
+**From source (dev / custom)**
 
 ```bash
-# npm edition
 git clone https://github.com/becomeless/cc-x
-cd ccx && npm install && npm run build && npm link    # then `xx` is available
-
-# or the PowerShell edition
-pwsh -ExecutionPolicy Bypass -File .\ccx\install.ps1   # registers an xx function in $PROFILE (idempotent)
+cd cc-x
+npm install
+npm run build
+npm link    # then `xx` is available
 ```
 
 **Open a new terminal afterwards.**
@@ -136,8 +123,8 @@ scopes:
 | Effect on other / running sessions | **None** | **None** (env is fixed at process start) |
 | Typical use | Parallel terminals, each on a different API | Your usual "main" API |
 
-**Parallel example:** open 4 terminals and run `xx 官方 -Session`, `xx DeepSeek -Session`,
-`xx 智谱GLM -Session`, `xx 小米MiMo -Session` — four Claude sessions running at once, each
+**Parallel example:** open 4 terminals and run `xx 官方 -s`, `xx DeepSeek -s`,
+`xx 智谱GLM -s`, `xx 小米MiMo -s` — four Claude sessions running at once, each
 on its own API, independent.
 
 **Why not switch via a global config file?** Because `settings.json` is global and editing
@@ -184,9 +171,6 @@ xx -l                    # list all profiles and their status (--list)
 xx --lang en             # UI in English for this run (zh / en)
 xx --help                # show all options
 ```
-
-- The **npm edition** uses `-s/--session`, `-l/--list`, `--lang`, `--help`; the **PowerShell
-  edition** uses `-Session`, `-List` (no `--lang`).
 
 ## Profile fields
 
@@ -318,11 +302,11 @@ not support it. DeepSeek recommends `max`; leave others empty.
 
 - **Clear env vars first**: run `xx` → Set as default → 官方 to clear all managed variables.
 - Remove the tool itself:
-  - npm edition → `npm uninstall -g @cc-x/cc-x`;
-  - PowerShell edition → `Uninstall-Module ccx`, or delete the `# >>> xx >>>` … `# <<< xx <<<`
-    block from your `$PROFILE`;
+  - `npm uninstall -g @cc-x/cc-x`;
   - on macOS / Linux, also remove the `# >>> xx >>>` marker block from your shell startup file
-    if you ever used "Set as default".
+    if you ever used "Set as default";
+  - Windows users migrating from the old PowerShell edition can also delete the `# >>> xx >>>`
+    marker block from `$PROFILE` and run `Uninstall-Module ccx -AllVersions`.
 - Delete the data dir `~/.cc-mini/`.
 
 ## Philosophy
