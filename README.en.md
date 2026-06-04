@@ -11,9 +11,10 @@ purely through environment variables, so it is **physically incapable of clobber
 plugins, or hooks** — and it lets **multiple terminals each run a different API at the
 same time, without interfering with one another**.
 
-> **Native Windows build:** GitHub Releases provide a lightweight `xx.exe` with no Node.js
-> requirement. On **macOS / Linux**, or if you prefer npm, use `npm install -g @cc-x/cc-x`
-> (the terminal command is still `xx`).
+> **Native Go build:** GitHub Releases provide a lightweight `xx` / `xx.exe` with no
+> Node.js requirement for Windows x64, macOS Intel / Apple Silicon, and Linux x64 / arm64.
+> If you prefer npm, `npm install -g @cc-x/cc-x` is still available (the terminal command
+> is still `xx`).
 
 ---
 
@@ -67,12 +68,10 @@ place, or prefer an all-in-one tool.
 
 ## Requirements
 
-- **Native Windows build:** Windows 10/11 x64; no Node.js required.
+- **Native Go build:** Windows 10/11 x64, macOS Intel / Apple Silicon, Linux x64 / arm64;
+  no Node.js required.
 - **Cross-platform npm build:** Node.js ≥ 18 (package `@cc-x/cc-x`).
 - **Claude Code installed (`claude` on PATH)** — "Use this session" launches `claude`.
-
-> The native Go build ships **Windows x64** first; native macOS / Linux assets are planned
-> next. The npm build still covers Windows / macOS / Linux.
 
 ## Install
 
@@ -87,6 +86,21 @@ installs it to `%LOCALAPPDATA%\Programs\ccx`, and adds that directory to the use
 Open a new terminal afterwards and run:
 
 ```powershell
+xx --version
+```
+
+**Native macOS / Linux build (recommended)**
+
+```bash
+curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh
+```
+
+The installer downloads the matching `ccx_*_darwin_*.tar.gz` or `ccx_*_linux_*.tar.gz`
+asset, installs `xx` to `~/.local/bin` (override with `CCX_INSTALL_DIR` or
+`--install-dir`), and verifies `checksums.txt` when available. If that directory is not
+on PATH, add it as prompted, open a new terminal, and run:
+
+```bash
 xx --version
 ```
 
@@ -106,11 +120,11 @@ git clone https://github.com/becomeless/cc-x
 cd cc-x
 ```
 
-Native Windows build with version injection and a Release zip:
+Native Go release build with version injection and multi-platform assets:
 
 ```powershell
-.\scripts\build-windows-release.ps1 -Version 0.4.1
-.\dist\release\ccx_0.4.1_windows_amd64\xx.exe --version
+.\scripts\build-release.ps1 -Version 0.4.2
+.\dist\release\ccx_0.4.2_windows_amd64\xx.exe --version
 ```
 
 npm build:
@@ -167,7 +181,7 @@ up/down and reorder** — saved instantly:
   - **Delete** — removes the profile (with confirmation; keep "官方").
   - **Back**.
 - **+ New profile**.
-- **🌐 语言 / Language** — toggle the UI between English and Chinese instantly (remembered;
+- **语言 / Language** — toggle the UI between English and Chinese instantly (remembered;
   written back to `lang` in `~/.cc-mini/providers.json`).
 - **Quit**.
 
@@ -327,6 +341,10 @@ not support it. DeepSeek recommends `max`; leave others empty.
     from the user PATH, or run:
     ```powershell
     powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1; & ([scriptblock]::Create($s)) -Uninstall"
+    ```
+  - native macOS / Linux build:
+    ```bash
+    curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh -s -- --uninstall
     ```
   - npm build: `npm uninstall -g @cc-x/cc-x`;
   - on macOS / Linux, also remove the `# >>> xx >>>` marker block from your shell startup file

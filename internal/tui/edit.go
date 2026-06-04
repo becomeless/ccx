@@ -85,7 +85,7 @@ func EditForm(t *Terminal, prov *config.Provider, store *config.Store, catalog [
 			items[i] = r.label
 		}
 
-		sel := SelectMenu(t, SelectOptions{Title: i18n.T("edit.title"), Items: items, Start: start, Hint: i18n.T("edit.hint")})
+		sel := SelectMenu(t, SelectOptions{Title: i18n.T("edit.title"), Items: items, Start: start, Hint: i18n.T("edit.hint"), NoNumber: true})
 		if sel < 0 {
 			return false // Esc / q = 放弃
 		}

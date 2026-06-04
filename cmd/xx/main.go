@@ -1,6 +1,6 @@
 // Command xx 是 ccx 的 Go 原生入口：解析参数 -> 分派到 CLI 路径或交互菜单。
 //
-// 铁律：绝不写 Claude Code 配置文件；API 切换只动 7 个受管环境变量。详见 docs/go-rewrite-plan.md。
+// 铁律：绝不写 Claude Code 配置文件；API 切换只动 7 个受管环境变量。
 package main
 
 import (

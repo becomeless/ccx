@@ -2,7 +2,6 @@
 //
 // 铁律：这里只写工具自己的数据文件（providers.json），绝不碰 ~/.claude/*。
 // 数据格式必须与 npm/PowerShell 版完全兼容（老用户的 providers.json 能直接读）。
-// 详见 docs/go-rewrite-plan.md 与 docs/npm-rewrite-plan.md §3。
 package config
 
 import (

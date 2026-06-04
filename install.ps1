@@ -52,23 +52,48 @@ function Normalize-PathForCompare {
   }
 }
 
+# 直读 HKCU\Environment 的 Path 原始值（不展开 %VAR%），避免回写时把别人的 REG_EXPAND_SZ 条目冻结成字面量。
+function Get-RawUserPath {
+  $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $false)
+  if (-not $key) { return "" }
+  try {
+    return [string]$key.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+  }
+  finally {
+    $key.Close()
+  }
+}
+
+# 以 REG_EXPAND_SZ 回写 Path，保留 %VAR% 形式，并广播一次环境变更。
+function Set-RawUserPath {
+  param([string]$Value)
+  $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
+  try {
+    $key.SetValue("Path", $Value, [Microsoft.Win32.RegistryValueKind]::ExpandString)
+  }
+  finally {
+    $key.Close()
+  }
+  Publish-EnvironmentChange
+}
+
 function Add-UserPath {
   param([string]$Dir)
 
   $full = Normalize-PathForCompare $Dir
-  $current = [Environment]::GetEnvironmentVariable("Path", "User")
+  $current = Get-RawUserPath
   $parts = Split-PathList $current
   foreach ($part in $parts) {
     if ((Normalize-PathForCompare $part).Equals($full, [StringComparison]::OrdinalIgnoreCase)) {
       return $false
     }
   }
+  # 保留原始条目（含 %VAR%），仅追加安装目录（已是字面量全路径）。
   $next = if ($current) { "$current;$full" } else { $full }
-  [Environment]::SetEnvironmentVariable("Path", $next, "User")
+  Set-RawUserPath $next
   if ($env:Path -notlike "*$full*") {
     $env:Path = "$env:Path;$full"
   }
-  Publish-EnvironmentChange
   return $true
 }
 
@@ -76,24 +101,39 @@ function Remove-UserPath {
   param([string]$Dir)
 
   $full = Normalize-PathForCompare $Dir
-  $current = [Environment]::GetEnvironmentVariable("Path", "User")
+  $current = Get-RawUserPath
   $parts = Split-PathList $current
   $kept = @()
   $removed = $false
   foreach ($part in $parts) {
-    $partFull = Normalize-PathForCompare $part
-    if ($partFull.Equals($full, [StringComparison]::OrdinalIgnoreCase)) {
+    if ((Normalize-PathForCompare $part).Equals($full, [StringComparison]::OrdinalIgnoreCase)) {
       $removed = $true
     }
     else {
-      $kept += $part
+      $kept += $part  # 保留原始字符串，不动其 %VAR% 形式
     }
   }
   if ($removed) {
-    [Environment]::SetEnvironmentVariable("Path", ($kept -join ";"), "User")
-    Publish-EnvironmentChange
+    Set-RawUserPath ($kept -join ";")
   }
   return $removed
+}
+
+function Resolve-FinalUri {
+  param($Response)
+
+  # 取重定向后的最终 URL。Windows PowerShell 5.1 的 BaseResponse 是 HttpWebResponse（有 ResponseUri）；
+  # PowerShell 7 是 HttpResponseMessage（无 ResponseUri，有 RequestMessage.RequestUri）。
+  # StrictMode 下访问不存在的属性会抛错，故逐个 try 包裹。
+  try {
+    if ($Response.BaseResponse.ResponseUri) { return [string]$Response.BaseResponse.ResponseUri.AbsoluteUri }
+  }
+  catch {}
+  try {
+    if ($Response.BaseResponse.RequestMessage.RequestUri) { return [string]$Response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri }
+  }
+  catch {}
+  return ""
 }
 
 function Resolve-LatestTag {
@@ -101,13 +141,7 @@ function Resolve-LatestTag {
 
   $url = "https://github.com/$RepoName/releases/latest"
   $response = Invoke-WebRequest -UseBasicParsing -Uri $url -MaximumRedirection 5
-  $location = ""
-  if ($response.BaseResponse -and $response.BaseResponse.ResponseUri) {
-    $location = $response.BaseResponse.ResponseUri.AbsoluteUri
-  }
-  elseif ($response.BaseResponse -and $response.BaseResponse.RequestMessage) {
-    $location = $response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
-  }
+  $location = Resolve-FinalUri $response
 
   if (-not $location -or $location -notmatch "/releases/tag/([^/?#]+)") {
     throw "Could not resolve the latest release tag from $url."

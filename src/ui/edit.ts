@@ -71,7 +71,7 @@ export async function editForm(prov: Provider, store: Store, catalog: Preset[]):
       { action: 'discard', label: T('edit.discard') },
     ];
 
-    const sel = await selectMenu({ title: T('edit.title'), items: rows.map((r) => r.label), start, hint: T('edit.hint') });
+    const sel = await selectMenu({ title: T('edit.title'), items: rows.map((r) => r.label), start, hint: T('edit.hint'), noNumber: true });
     if (sel < 0) return false; // Esc / q = 放弃
     start = sel;
 

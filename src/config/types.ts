@@ -2,7 +2,6 @@
  * 数据层共享类型与常量。
  *
  * 数据格式必须与现版 PowerShell 完全兼容（老用户的 ~/.cc-mini/providers.json 能直接读）。
- * 详见 docs/npm-rewrite-plan.md §3。
  */
 
 /** 受管的 7 个环境变量（工具只动这些，其它一律不碰）。详见 plan §2。 */

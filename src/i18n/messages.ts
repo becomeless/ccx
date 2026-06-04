@@ -75,7 +75,7 @@ export const messages: Record<string, Msg> = {
   'action.hint': { zh: '↑↓ 选择 · Enter 确认 · q 返回', en: '↑↓ move · Enter select · q back' },
   'action.deleteConfirm': { zh: '确认删除 [{0}]? (y/N): ', en: 'Delete [{0}]? (y/N): ' },
   'action.deleteOfficialWarn': { zh: '建议保留『官方』。', en: 'Keeping "Official" is recommended.' },
-  'menu.language': { zh: '🌐 切换到 English', en: '🌐 切换到中文' },
+  'menu.language': { zh: '切换到 English', en: '切换到中文' },
 
   // —— 通用占位 ——
   'empty.paren': { zh: '(空)', en: '(empty)' },

@@ -21,6 +21,7 @@ type SelectOptions struct {
 	Colors       map[int]Color // 按索引上色
 	MovableCount int           // 顶部可排序区项数
 	OnMove       func(from, to int) []string
+	NoNumber     bool // 关闭行首序号（默认显示，与数字直选一致；编辑表单项多于 9 个时关闭）
 }
 
 // SelectMenu 自绘 ↑↓ 选择菜单，返回选中索引；取消（q/Esc/非法）返回 -1；Ctrl+C 恢复终端后以 130 退出。
@@ -70,14 +71,18 @@ func SelectMenu(t *Terminal, opts SelectOptions) int {
 				lines = append(lines, "")
 				continue
 			}
+			num := ""
+			if !opts.NoNumber {
+				num = strconv.Itoa(i+1) + ". " // 行首序号，与数字键直选对应
+			}
 			if i == idx {
-				lines = append(lines, Paint("   ▶ "+it, ColorGreen))
+				lines = append(lines, Paint("   ▶ "+num+it, ColorGreen))
 			} else {
 				col := ColorNone
 				if c, ok := opts.Colors[i]; ok {
 					col = c
 				}
-				lines = append(lines, Paint("     "+it, col))
+				lines = append(lines, Paint("     "+num+it, col))
 			}
 		}
 		lines = append(lines, "")

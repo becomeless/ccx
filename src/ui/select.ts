@@ -29,6 +29,8 @@ export interface SelectOptions {
   movableCount?: number;
   /** 排序回调：交换数据并返回重建后的菜单项标签数组。 */
   onMove?: (from: number, to: number) => string[];
+  /** 关闭行首序号（默认显示，与数字直选一致；编辑表单项多于 9 个时关闭）。 */
+  noNumber?: boolean;
 }
 
 /** 返回选中索引；取消（q/Esc/非法）返回 -1。 */
@@ -71,8 +73,9 @@ export async function selectMenu(opts: SelectOptions): Promise<number> {
         lines.push('');
         continue;
       }
-      if (i === idx) lines.push(paint(`   ▶ ${it}`, 'green'));
-      else lines.push(paint(`     ${it}`, opts.colors?.[i] ?? 'none'));
+      const num = opts.noNumber ? '' : `${i + 1}. `; // 行首序号，与数字键直选对应
+      if (i === idx) lines.push(paint(`   ▶ ${num}${it}`, 'green'));
+      else lines.push(paint(`     ${num}${it}`, opts.colors?.[i] ?? 'none'));
     }
     lines.push('');
     if (opts.hint) lines.push(`  ${paint(opts.hint, 'dim')}`);
