@@ -60,7 +60,8 @@ cc-switch 是优秀的**全能型 GUI**；ccx 走相反的**极简路线**，两
 irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex
 ```
 
-装到 `%LOCALAPPDATA%\Programs\ccx` 并加入用户 PATH。
+装到 `%LOCALAPPDATA%\Programs\ccx`，并**自动写入用户 PATH（无需手动配置）**。装完**新开一个终端**就能用
+`xx`——已开着的终端读不到新 PATH，这是 Windows 的固有限制，不是要你手动设置。
 
 **macOS / Linux 原生版（推荐）**
 
@@ -68,7 +69,8 @@ irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | ie
 curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh
 ```
 
-装到 `~/.local/bin`（可用 `CCX_INSTALL_DIR` 改目录），并校验 `checksums.txt`。若该目录不在 PATH，按提示加入。
+装到 `~/.local/bin`（可用 `CCX_INSTALL_DIR` 改目录），并校验 `checksums.txt`。该目录是 XDG 标准 bin 目录、
+多数系统默认已在 PATH；仅当它不在 PATH 时，安装器会打印一行提示让你加入（Unix 版刻意不自动改 shell 配置）。
 
 **npm 全平台版**（需 Node.js ≥ 18）
 

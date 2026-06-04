@@ -63,7 +63,9 @@ cc-switch is an excellent all-in-one **GUI**; ccx takes the opposite, **minimal*
 irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex
 ```
 
-Installs to `%LOCALAPPDATA%\Programs\ccx` and adds it to your user PATH.
+Installs to `%LOCALAPPDATA%\Programs\ccx` and **adds it to your user PATH automatically (no manual step)**.
+Just **open a new terminal** afterward to use `xx` — already-open terminals can't see the new PATH; that's a
+Windows limitation, not a manual step you have to do.
 
 **macOS / Linux native (recommended)**
 
@@ -71,8 +73,9 @@ Installs to `%LOCALAPPDATA%\Programs\ccx` and adds it to your user PATH.
 curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh
 ```
 
-Installs to `~/.local/bin` (override with `CCX_INSTALL_DIR`) and verifies `checksums.txt`. If that dir
-isn't on PATH, follow the printed hint.
+Installs to `~/.local/bin` (override with `CCX_INSTALL_DIR`) and verifies `checksums.txt`. That's the standard
+XDG bin dir, usually already on PATH; only if it isn't does the installer print a hint to add it (the Unix
+installer deliberately doesn't edit your shell config).
 
 **npm, any platform** (needs Node.js ≥ 18)
 
