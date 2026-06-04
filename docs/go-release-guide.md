@@ -5,15 +5,15 @@
 
 ## 0. 版本号
 
-`v0.3.0` 已用于 npm 首发 Release。Go 原生 Windows 首发请使用新的 tag，例如 `v0.4.0`。
+`v0.3.0` 已用于 npm 首发 Release。Go 原生 Windows 首发请使用新的 tag，例如 `v0.4.1`。
 二进制内部版本号通过 Go build 注入：
 
 ```powershell
-.\scripts\build-windows-release.ps1 -Version 0.4.0
-.\dist\release\ccx_0.4.0_windows_amd64\xx.exe --version
+.\scripts\build-windows-release.ps1 -Version 0.4.1
+.\dist\release\ccx_0.4.1_windows_amd64\xx.exe --version
 ```
 
-`xx --version` 必须打印 `0.4.0`，不能是 `dev`。
+`xx --version` 必须打印 `0.4.1`，不能是 `dev`。
 
 ## 1. 发布前验证
 
@@ -33,18 +33,18 @@ npm pack --dry-run
 - `npm pack --dry-run` 不包含 Go 二进制、Release zip、`providers.json` 或 `node_modules`。
 - 真终端 smoke 已通过：主菜单、动作菜单、编辑表单、picker、排序、删除、语言切换、
   `--default-scope process`。
-- `ccx_0.4.0_windows_amd64.zip` 内含 `xx.exe`、`presets.json`、`LICENSE`、`README.md`、`README.en.md`。
+- `ccx_0.4.1_windows_amd64.zip` 内含 `xx.exe`、`presets.json`、`LICENSE`、`README.md`、`README.en.md`。
 
 ## 2. 构建资产
 
 ```powershell
-.\scripts\build-windows-release.ps1 -Version 0.4.0
+.\scripts\build-windows-release.ps1 -Version 0.4.1
 Get-ChildItem .\dist\release
 ```
 
 产物：
 
-- `dist\release\ccx_0.4.0_windows_amd64.zip`
+- `dist\release\ccx_0.4.1_windows_amd64.zip`
 - `dist\release\install.ps1`
 - `dist\release\checksums_windows_amd64.txt`
 
@@ -53,14 +53,14 @@ Get-ChildItem .\dist\release
 确认 tag 未被占用后再创建：
 
 ```powershell
-git tag -a v0.4.0 -m "ccx Go native Windows v0.4.0"
+git tag -a v0.4.1 -m "ccx Go native Windows v0.4.1"
 git push origin main --tags
-gh release create v0.4.0 `
-  .\dist\release\ccx_0.4.0_windows_amd64.zip `
+gh release create v0.4.1 `
+  .\dist\release\ccx_0.4.1_windows_amd64.zip `
   .\dist\release\install.ps1 `
   .\dist\release\checksums_windows_amd64.txt `
   --repo becomeless/cc-x `
-  --title "ccx v0.4.0" `
+  --title "ccx v0.4.1" `
   --notes "Go native Windows x64 build. npm @cc-x/cc-x remains available for cross-platform installs."
 ```
 
@@ -89,9 +89,9 @@ xx --list
 如果 Release 资产有问题：
 
 ```powershell
-gh release delete v0.4.0 --repo becomeless/cc-x
-git push origin :refs/tags/v0.4.0
-git tag -d v0.4.0
+gh release delete v0.4.1 --repo becomeless/cc-x
+git push origin :refs/tags/v0.4.1
+git tag -d v0.4.1
 ```
 
-若已有用户下载，优先发 `v0.4.1` 修正并在 Release notes 里说明，不要复用同一个 tag。
+若已有用户下载，优先发下一个 patch 版本修正并在 Release notes 里说明，不要复用同一个 tag。

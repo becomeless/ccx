@@ -85,7 +85,7 @@ $go = "$HOME\go-sdk\go\bin\go.exe"
 & $go test ./...
 & $go vet ./...
 & $go build ./cmd/xx
-.\scripts\build-windows-release.ps1 -Version 0.4.0
+.\scripts\build-windows-release.ps1 -Version 0.4.1
 
 # Published package
 npm install -g @cc-x/cc-x

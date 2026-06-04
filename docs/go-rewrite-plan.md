@@ -492,7 +492,7 @@ node .\dist\index.js --list
 - [x] **M6 文档 + 版本注入**：`README.md` / `README.en.md` 改为 Windows 原生版优先、npm 全平台版保留；
   `scripts/build-windows-release.ps1` 用 `-ldflags "-X main.version=<version>"` 注入版本并生成 Release zip；
   `docs/go-release-guide.md` 记录发布流程。
-- [~] **M7 分发**：`install.ps1` 与 Windows x64 Release zip 构建流程已就绪；真正创建 GitHub Release 时使用新 tag（建议 `v0.4.0`，
+- [~] **M7 分发**：`install.ps1` 与 Windows x64 Release zip 构建流程已就绪；真正创建 GitHub Release 时使用新 tag（建议 `v0.4.1`，
   避免复用已用于 npm 首发的 `v0.3.0`），并上传 `ccx_<version>_windows_amd64.zip`、`install.ps1`、`checksums_windows_amd64.txt`。
 - [ ] **M8 macOS / Linux**：Unix 默认持久化实测，Release 资产，必要时加 `install.sh`、Homebrew / Scoop。
 
@@ -559,4 +559,5 @@ node .\dist\index.js --list
 - 2026-06-04：用户真终端完整菜单 smoke 已通过，M5 关闭。M6/M7 继续：新增 `scripts/build-windows-release.ps1`
   （Windows amd64、版本号 `-ldflags` 注入、Release zip/checksum 产物）、`install.ps1`（下载 GitHub Release zip，安装到
   `%LOCALAPPDATA%\Programs\ccx` 并维护用户 PATH）、`docs/go-release-guide.md`；README 中英同步为 Windows 原生版优先、
-  npm 全平台版保留。`v0.3.0` 已是 npm 首发 Release，Go 原生公开发布建议从 `v0.4.0` 起。
+  npm 全平台版保留。`v0.3.0` 已是 npm 首发 Release；`v0.4.0` 首次上传后发现 installer 走 GitHub API 会触发匿名 rate limit，
+  Go 原生公开 Latest 改由修复后的 `v0.4.1` 承接。

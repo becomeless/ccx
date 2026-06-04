@@ -109,8 +109,8 @@ cd cc-x
 Native Windows build with version injection and a Release zip:
 
 ```powershell
-.\scripts\build-windows-release.ps1 -Version 0.4.0
-.\dist\release\ccx_0.4.0_windows_amd64\xx.exe --version
+.\scripts\build-windows-release.ps1 -Version 0.4.1
+.\dist\release\ccx_0.4.1_windows_amd64\xx.exe --version
 ```
 
 npm build:

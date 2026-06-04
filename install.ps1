@@ -96,44 +96,56 @@ function Remove-UserPath {
   return $removed
 }
 
-function Get-Release {
+function Resolve-LatestTag {
+  param([string]$RepoName)
+
+  $url = "https://github.com/$RepoName/releases/latest"
+  $response = Invoke-WebRequest -UseBasicParsing -Uri $url -MaximumRedirection 5
+  $location = ""
+  if ($response.BaseResponse -and $response.BaseResponse.ResponseUri) {
+    $location = $response.BaseResponse.ResponseUri.AbsoluteUri
+  }
+  elseif ($response.BaseResponse -and $response.BaseResponse.RequestMessage) {
+    $location = $response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+  }
+
+  if (-not $location -or $location -notmatch "/releases/tag/([^/?#]+)") {
+    throw "Could not resolve the latest release tag from $url."
+  }
+  return $Matches[1]
+}
+
+function Resolve-ReleaseAsset {
   param([string]$RepoName, [string]$RequestedVersion)
 
-  $headers = @{ "User-Agent" = "ccx-install.ps1" }
   if ($RequestedVersion -eq "latest") {
-    $url = "https://api.github.com/repos/$RepoName/releases/latest"
+    $tag = Resolve-LatestTag $RepoName
   }
   else {
     $tag = if ($RequestedVersion.StartsWith("v")) { $RequestedVersion } else { "v$RequestedVersion" }
-    $url = "https://api.github.com/repos/$RepoName/releases/tags/$tag"
   }
-  return Invoke-RestMethod -Headers $headers -Uri $url
-}
 
-function Select-WindowsAsset {
-  param($Release)
-
-  $assets = @($Release.assets)
-  $asset = $assets | Where-Object { $_.name -match "^ccx_.+_windows_amd64\.zip$" } | Select-Object -First 1
-  if (-not $asset) {
-    $asset = $assets | Where-Object { $_.name -match "windows.*amd64.*\.zip$" } | Select-Object -First 1
+  if ($tag -notmatch "^v?(.+)$") {
+    throw "Invalid release tag: $tag"
   }
-  if (-not $asset) {
-    throw "No Windows amd64 zip asset was found on release $($Release.tag_name)."
+  $versionValue = $Matches[1]
+  $assetName = "ccx_${versionValue}_windows_amd64.zip"
+  return [pscustomobject]@{
+    Tag = $tag
+    Name = $assetName
+    Url = "https://github.com/$RepoName/releases/download/$tag/$assetName"
   }
-  return $asset
 }
 
 function Install-Ccx {
-  $release = Get-Release $Repo $Version
-  $asset = Select-WindowsAsset $release
+  $asset = Resolve-ReleaseAsset $Repo $Version
   $installFull = [IO.Path]::GetFullPath($InstallDir)
   $temp = Join-Path ([IO.Path]::GetTempPath()) ("ccx-install-" + [Guid]::NewGuid().ToString("N"))
   New-Item -ItemType Directory -Force -Path $temp | Out-Null
 
   try {
-    $zip = Join-Path $temp $asset.name
-    Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $zip
+    $zip = Join-Path $temp $asset.Name
+    Invoke-WebRequest -UseBasicParsing -Uri $asset.Url -OutFile $zip
     Expand-Archive -LiteralPath $zip -DestinationPath $temp -Force
     $exe = Get-ChildItem -LiteralPath $temp -Recurse -Filter "xx.exe" | Select-Object -First 1
     if (-not $exe) {

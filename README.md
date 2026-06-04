@@ -126,8 +126,8 @@ cd cc-x
 Go 原生 Windows 构建（注入版本号并生成 Release zip）：
 
 ```powershell
-.\scripts\build-windows-release.ps1 -Version 0.4.0
-.\dist\release\ccx_0.4.0_windows_amd64\xx.exe --version
+.\scripts\build-windows-release.ps1 -Version 0.4.1
+.\dist\release\ccx_0.4.1_windows_amd64\xx.exe --version
 ```
 
 npm 版开发：

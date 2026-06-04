@@ -31,6 +31,10 @@
     "!dist/release/**",
     "!dist/**/*.exe",
     "!dist/**/*.zip",
+    "!dist/**/*.md",
+    "!dist/**/*.txt",
+    "!dist/**/LICENSE",
+    "!dist/**/presets.json",
     "presets.json",
     "README.md",
     "README.en.md"
