@@ -33,11 +33,15 @@ export interface Provider {
   env: Record<string, string>;
 }
 
-/** ~/.cc-mini/providers.json 的顶层结构。`lang` 为新增字段，旧文件缺省视为 zh。 */
+/**
+ * ~/.cc-mini/providers.json 的顶层结构。`lang` 为新增字段，旧文件缺省视为 zh。
+ * `update`：更新检查模式，'notify'=提醒；缺省=关闭（默认，不写）。字段顺序须与 Go 版一致（…providers, update?）。
+ */
 export interface Store {
   current: string;
   lang?: Lang;
   providers: Provider[];
+  update?: string;
 }
 
 /** presets.json 里一个供应商的某个 API 地址（可多个，多个时让用户选）。 */

@@ -16,6 +16,8 @@ import { truncateDisplay } from '../utils/display.js';
 
 export interface SelectOptions {
   title?: string;
+  /** 标题下方黄字横幅（如「有新版本」），常驻显示。 */
+  notice?: string;
   /** 菜单项；'' = 不可选的分隔空行（导航跳过）。 */
   items: string[];
   hint?: string;
@@ -63,6 +65,9 @@ export async function selectMenu(opts: SelectOptions): Promise<number> {
     const lines: string[] = [''];
     if (opts.title) {
       lines.push(`  ${paint(opts.title, 'cyan')}`, '');
+    }
+    if (opts.notice) {
+      lines.push(`  ${paint(opts.notice, 'yellow')}`, '');
     }
     if (opts.status) {
       lines.push(`  ${paint(opts.status, 'green')}`, '');

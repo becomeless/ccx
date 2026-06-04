@@ -58,6 +58,10 @@ export const messages: Record<string, Msg> = {
   'menu.exit': { zh: '退出', en: 'Exit' },
   'menu.default': { zh: '（默认）', en: '(default)' },
   'menu.comingSoon': { zh: '（该功能下一步实现）', en: '(coming in the next step)' },
+  // 更新检查：菜单开关两态 + 有新版时的横幅（{0}=新版本号，{1}=升级命令）
+  'menu.updateOff': { zh: '更新检查：关闭', en: 'Update check: off' },
+  'menu.updateNotify': { zh: '更新检查：提醒', en: 'Update check: notify' },
+  'menu.updateAvailable': { zh: '有新版本 {0} · 升级：{1}', en: 'New version {0} · upgrade: {1}' },
 
   // —— 动作菜单 ——
   'action.titlePrefix': { zh: '配置：', en: 'Profile: ' },

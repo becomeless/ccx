@@ -12,6 +12,7 @@ import { isOfficial, reconcileCurrent, saveStore, type Provider, type Store, typ
 import type { Preset } from '../config/types.js';
 import { setDefault, type DefaultScope } from '../env/default.js';
 import { getLang, providerDisplayName, setLang, T } from '../i18n/index.js';
+import { banner as updateBanner, maybeRefresh, MODE_NOTIFY, upgradeCommand } from '../update/update.js';
 import { padDisplay } from '../utils/display.js';
 import { editForm } from './edit.js';
 import { noteSuffix, stateLabel } from './format.js';
@@ -33,14 +34,26 @@ export async function openMenu(
   catalog: Preset[],
 ): Promise<void> {
   let sel = 0;
+  let refreshed = false;
   for (;;) {
     const n = store.providers.length;
+    // 更新检查（仅 notify 模式）：首轮触发一次后台刷新；横幅永远读缓存（瞬时、不阻塞）。
+    let notice: string | undefined;
+    if (store.update === MODE_NOTIFY) {
+      if (!refreshed) {
+        maybeRefresh(paths.dir);
+        refreshed = true;
+      }
+      const latest = updateBanner(paths.dir, version);
+      if (latest) notice = T('menu.updateAvailable', latest, upgradeCommand());
+    }
+    const updLabel = store.update === MODE_NOTIFY ? T('menu.updateNotify') : T('menu.updateOff');
     const buildItems = (): string[] => {
       const labels = store.providers.map((p) => {
         const dft = p.name === store.current ? T('menu.default') : '';
         return `${padDisplay(providerDisplayName(p), 16)}${padDisplay(dft, 8)}[${stateLabel(p)}]${noteSuffix(p)}`;
       });
-      return [...labels, '', T('menu.newProfile'), T('menu.language'), '', T('menu.exit')];
+      return [...labels, '', T('menu.newProfile'), T('menu.language'), updLabel, '', T('menu.exit')];
     };
     const onMove = (from: number, to: number): string[] => {
       const ps = store.providers;
@@ -56,6 +69,7 @@ export async function openMenu(
 
     sel = await selectMenu({
       title: T('menu.mainTitle', version),
+      ...(notice ? { notice } : {}),
       items: buildItems(),
       colors: { [n + 1]: 'yellow' },
       start: sel,
@@ -65,7 +79,7 @@ export async function openMenu(
       noNumber: true,
     });
 
-    if (sel < 0 || sel === n + 4) return; // 退出 / Esc / q
+    if (sel < 0 || sel === n + 5) return; // 退出 / Esc / q
     if (sel === n + 1) {
       // 新增配置
       const prov: Provider = { name: '', env: {} };
@@ -79,6 +93,11 @@ export async function openMenu(
       const next = getLang() === 'zh' ? 'en' : 'zh';
       setLang(next);
       store.lang = next;
+      saveStore(paths, store);
+    } else if (sel === n + 3) {
+      // 更新检查开关：关闭 <-> 提醒（关闭=删字段，与 Go 的 omitempty 对齐）
+      if (store.update === MODE_NOTIFY) delete store.update;
+      else store.update = MODE_NOTIFY;
       saveStore(paths, store);
     } else if (sel < n) {
       const target = store.providers[sel];

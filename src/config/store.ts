@@ -86,7 +86,9 @@ function normalizeStore(raw: unknown, file: string): Store {
   const providers: Provider[] = obj.providers.map((p) => normalizeProvider(p, file));
   const lang: Lang | undefined = obj.lang === 'en' ? 'en' : obj.lang === 'zh' ? 'zh' : undefined;
   const current = typeof obj.current === 'string' ? obj.current : (providers[0]?.name ?? '');
-  return { current, ...(lang ? { lang } : {}), providers };
+  // 只认已知模式，未知值视为关闭（不回写）。字段顺序须与 Go 版一致：…providers, update?
+  const update = obj.update === 'notify' || obj.update === 'auto' ? obj.update : undefined;
+  return { current, ...(lang ? { lang } : {}), providers, ...(update ? { update } : {}) };
 }
 
 function normalizeProvider(raw: unknown, file: string): Provider {

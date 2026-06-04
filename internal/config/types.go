@@ -120,11 +120,13 @@ func orderedEnvKeys(env map[string]string) []string {
 }
 
 // Store 是 ~/.cc-mini/providers.json 的顶层结构。Lang 为新增字段，旧文件缺省视为 zh。
-// 字段顺序（current, lang?, providers）与 npm 版输出一致。
+// 字段顺序（current, lang?, providers, update?）与 npm 版输出一致。
+// Update 为更新检查模式："notify"=提醒；空=关闭（默认，省略不写）。预留 "auto" 给将来 Go 版自动升级。
 type Store struct {
 	Current   string     `json:"current"`
 	Lang      Lang       `json:"lang,omitempty"`
 	Providers []Provider `json:"providers"`
+	Update    string     `json:"update,omitempty"`
 }
 
 // 注：供应商目录（presets）的类型与加载放在 internal/presets 包（见 go-rewrite-plan §8）。

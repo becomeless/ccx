@@ -140,7 +140,11 @@ func normalizeStore(raw any, file string) (*Store, error) {
 	} else if len(providers) > 0 {
 		current = providers[0].Name
 	}
-	return &Store{Current: current, Lang: lang, Providers: providers}, nil
+	update := ""
+	if u, ok := obj["update"].(string); ok && (u == "notify" || u == "auto") {
+		update = u // 只认已知模式，未知值视为关闭（不回写）
+	}
+	return &Store{Current: current, Lang: lang, Providers: providers, Update: update}, nil
 }
 
 func normalizeProvider(raw any, file string) (Provider, error) {

@@ -14,6 +14,7 @@ import (
 // SelectOptions 配置一次 ↑↓ 选择菜单。” 项为不可选分隔空行（导航跳过）。
 type SelectOptions struct {
 	Title        string
+	Notice       string // 标题下方黄字横幅（如「有新版本」），常驻显示
 	Items        []string
 	Hint         string
 	Status       string        // 顶部绿色 toast
@@ -62,6 +63,9 @@ func SelectMenu(t *Terminal, opts SelectOptions) int {
 		lines := []string{""}
 		if opts.Title != "" {
 			lines = append(lines, "  "+Paint(opts.Title, ColorCyan), "")
+		}
+		if opts.Notice != "" {
+			lines = append(lines, "  "+Paint(opts.Notice, ColorYellow), "")
 		}
 		if opts.Status != "" {
 			lines = append(lines, "  "+Paint(opts.Status, ColorGreen), "")

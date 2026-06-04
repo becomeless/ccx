@@ -11,13 +11,30 @@ import (
 	"github.com/becomeless/cc-x/internal/i18n"
 	"github.com/becomeless/cc-x/internal/launch"
 	"github.com/becomeless/cc-x/internal/presets"
+	"github.com/becomeless/cc-x/internal/update"
 )
 
 // OpenMenu 一级 · 主菜单。布局：[profiles…] ” 新增 语言 ” 退出。对应 npm 版 openMenu。
 func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope defaults.Scope, version string, catalog []presets.Preset) {
 	sel := 0
+	refreshed := false
 	for {
 		n := len(store.Providers)
+		// 更新检查（仅 notify 模式）：首轮触发一次后台刷新；横幅永远读缓存（瞬时、不阻塞）。
+		notice := ""
+		if store.Update == update.ModeNotify {
+			if !refreshed {
+				update.MaybeRefresh(paths.Dir)
+				refreshed = true
+			}
+			if latest, ok := update.Banner(paths.Dir, version); ok {
+				notice = i18n.T("menu.updateAvailable", latest, update.UpgradeCommand())
+			}
+		}
+		updLabel := i18n.T("menu.updateOff")
+		if store.Update == update.ModeNotify {
+			updLabel = i18n.T("menu.updateNotify")
+		}
 		buildItems := func() []string {
 			labels := make([]string, n)
 			for i := range store.Providers {
@@ -29,7 +46,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 				labels[i] = display.Pad(i18n.ProviderDisplayName(p), 16) + display.Pad(dft, 8) + "[" + i18n.StateLabel(p) + "]" + i18n.NoteSuffix(p)
 			}
 			items := append([]string{}, labels...)
-			return append(items, "", i18n.T("menu.newProfile"), i18n.T("menu.language"), "", i18n.T("menu.exit"))
+			return append(items, "", i18n.T("menu.newProfile"), i18n.T("menu.language"), updLabel, "", i18n.T("menu.exit"))
 		}
 		onMove := func(from, to int) []string {
 			ps := store.Providers
@@ -42,6 +59,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 
 		sel = SelectMenu(t, SelectOptions{
 			Title:        i18n.T("menu.mainTitle", version),
+			Notice:       notice,
 			Items:        buildItems(),
 			Colors:       map[int]Color{n + 1: ColorYellow},
 			Start:        sel,
@@ -52,7 +70,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 		})
 
 		switch {
-		case sel < 0 || sel == n+4: // 退出 / Esc / q
+		case sel < 0 || sel == n+5: // 退出 / Esc / q
 			return
 		case sel == n+1: // 新增配置
 			prov := config.Provider{Env: map[string]string{}}
@@ -68,6 +86,13 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			}
 			i18n.SetLang(next)
 			store.Lang = next
+			_ = config.Save(paths, store)
+		case sel == n+3: // 更新检查开关：关闭 <-> 提醒
+			if store.Update == update.ModeNotify {
+				store.Update = update.ModeOff
+			} else {
+				store.Update = update.ModeNotify
+			}
 			_ = config.Save(paths, store)
 		case sel < n:
 			actionMenu(t, paths, store, &store.Providers[sel], scope, catalog)
