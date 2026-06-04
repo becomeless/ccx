@@ -75,6 +75,7 @@ func EditForm(t *Terminal, prov *config.Provider, store *config.Store, catalog [
 			{"sonnet", i18n.T("edit.field.sonnet") + ": " + v(w.sonnet)},
 			{"haiku", i18n.T("edit.field.haiku") + ": " + v(w.haiku)},
 			{"effort", i18n.T("edit.field.effort") + ": " + v(w.effort)},
+			{"sep", ""},
 			{"toggle", toggleLabel(showSecret)},
 			{"sep", ""},
 			{"save", i18n.T("edit.save")},

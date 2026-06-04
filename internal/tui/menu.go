@@ -48,6 +48,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			MovableCount: n,
 			OnMove:       onMove,
 			Hint:         i18n.T("menu.mainHint"),
+			NoNumber:     true,
 		})
 
 		switch {
@@ -89,7 +90,7 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 		title := i18n.T("action.titlePrefix") + i18n.ProviderDisplayName(*p) + dft + i18n.NoteSuffix(*p) + "    [" + i18n.StateLabel(*p) + "]"
 		items := []string{i18n.T("action.session"), i18n.T("action.setDefault"), i18n.T("action.edit"), i18n.T("action.delete"), i18n.T("action.back")}
 
-		opts := SelectOptions{Title: title, Items: items, Start: sel, Hint: i18n.T("action.hint")}
+		opts := SelectOptions{Title: title, Items: items, Start: sel, Hint: i18n.T("action.hint"), NoNumber: true}
 		if flash != "" {
 			opts.Status = flash
 		}

@@ -141,10 +141,12 @@ func SelectMenu(t *Terminal, opts SelectOptions) int {
 			cleanup()
 			return -1
 		case KeyDigit:
-			n := int(k.Rune - '0')
-			if n >= 1 && n <= len(items) && items[n-1] != "" {
-				cleanup()
-				return n - 1
+			if !opts.NoNumber {
+				n := int(k.Rune - '0')
+				if n >= 1 && n <= len(items) && items[n-1] != "" {
+					cleanup()
+					return n - 1
+				}
 			}
 		case KeyChar:
 			if k.Rune == 'q' {

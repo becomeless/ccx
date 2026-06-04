@@ -27,7 +27,7 @@ func PickProvider(t *Terminal, catalog []presets.Preset, current string) (sel *p
 	if cur == "" {
 		cur = i18n.T("pick.provider.none")
 	}
-	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.provider.title", cur), Items: items, Hint: i18n.T("pick.hint")})
+	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.provider.title", cur), Items: items, Hint: i18n.T("pick.hint"), NoNumber: true})
 	if s < 0 || s == len(items)-1 {
 		return nil, false
 	}
@@ -51,7 +51,7 @@ func PickProviderURL(t *Terminal, preset *presets.Preset, current string) string
 		labels[i] = display.Pad(u.Label, 12) + " " + orEmpty(u.URL)
 	}
 	items := append(labels, i18n.T("pick.noChange"))
-	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.providerUrl.title", preset.Name), Items: items, Hint: i18n.T("pick.hint")})
+	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.providerUrl.title", preset.Name), Items: items, Hint: i18n.T("pick.hint"), NoNumber: true})
 	if s < 0 || s == len(items)-1 {
 		return current
 	}
@@ -86,7 +86,7 @@ func PickBaseURL(t *Terminal, current string, store *config.Store, catalog []pre
 		items = append(items, e.label)
 	}
 	items = append(items, i18n.T("pick.manual"), i18n.T("pick.noChange"))
-	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.base.title", orEmpty(current)), Items: items, Hint: i18n.T("pick.hint")})
+	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.base.title", orEmpty(current)), Items: items, Hint: i18n.T("pick.hint"), NoNumber: true})
 	if s < 0 || s == len(items)-1 {
 		return current
 	}
@@ -106,7 +106,7 @@ func PickBaseURL(t *Terminal, current string, store *config.Store, catalog []pre
 // PickAuth 选认证字段：AUTH_TOKEN / API_KEY / 不改。
 func PickAuth(t *Terminal, current string) string {
 	items := []string{i18n.T("pick.auth.token"), i18n.T("pick.auth.apikey"), i18n.T("pick.noChange")}
-	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.auth.title", current), Items: items, Hint: i18n.T("pick.hint")})
+	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.auth.title", current), Items: items, Hint: i18n.T("pick.hint"), NoNumber: true})
 	if s == 0 {
 		return presets.AuthToken
 	}
@@ -121,7 +121,7 @@ var effortOpts = []string{"low", "medium", "high", "xhigh", "max", "auto"}
 // PickEffort 选 effort 思考档：low…auto / 留空 / 不改。
 func PickEffort(t *Terminal, current string) string {
 	items := append(append([]string{}, effortOpts...), i18n.T("pick.effort.empty"), i18n.T("pick.noChange"))
-	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.effort.title", orEmpty(current)), Items: items, Hint: i18n.T("pick.effort.hint")})
+	s := SelectMenu(t, SelectOptions{Title: i18n.T("pick.effort.title", orEmpty(current)), Items: items, Hint: i18n.T("pick.effort.hint"), NoNumber: true})
 	if s < 0 || s == len(items)-1 {
 		return current
 	}
