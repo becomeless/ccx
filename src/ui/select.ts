@@ -136,7 +136,7 @@ export async function selectMenu(opts: SelectOptions): Promise<number> {
           break;
       }
       const ch = str ?? '';
-      if (/^[0-9]$/.test(ch)) {
+      if (!opts.noNumber && /^[0-9]$/.test(ch)) {
         const n = Number.parseInt(ch, 10);
         if (n >= 1 && n <= items.length && items[n - 1] !== '') cleanup(n - 1);
         return;

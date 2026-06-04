@@ -65,6 +65,7 @@ export async function editForm(prov: Provider, store: Store, catalog: Preset[]):
       { action: 'sonnet', label: `${T('edit.field.sonnet')}: ${v(W.sonnet)}` },
       { action: 'haiku', label: `${T('edit.field.haiku')}: ${v(W.haiku)}` },
       { action: 'effort', label: `${T('edit.field.effort')}: ${v(W.effort)}` },
+      { action: 'sep', label: '' },
       { action: 'toggle', label: showSecret ? T('edit.toggleSecretHide') : T('edit.toggleSecretShow') },
       { action: 'sep', label: '' },
       { action: 'save', label: T('edit.save') },

@@ -62,6 +62,7 @@ export async function openMenu(
       movableCount: n,
       onMove,
       hint: T('menu.mainHint'),
+      noNumber: true,
     });
 
     if (sel < 0 || sel === n + 4) return; // 退出 / Esc / q
@@ -102,7 +103,7 @@ async function actionMenu(
     const title = `${T('action.titlePrefix')}${providerDisplayName(p)}${dft}${noteSuffix(p)}    [${stateLabel(p)}]`;
     const items = [T('action.session'), T('action.setDefault'), T('action.edit'), T('action.delete'), T('action.back')];
 
-    sel = await selectMenu({ title, items, start: sel, ...(flash ? { status: flash } : {}), hint: T('action.hint') });
+    sel = await selectMenu({ title, items, start: sel, ...(flash ? { status: flash } : {}), hint: T('action.hint'), noNumber: true });
     flash = undefined;
 
     if (sel === 0) {

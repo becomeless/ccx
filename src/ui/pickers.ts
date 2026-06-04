@@ -16,6 +16,7 @@ export async function pickProvider(catalog: Preset[], current: string): Promise<
     title: T('pick.provider.title', current || T('pick.provider.none')),
     items,
     hint: T('pick.hint'),
+    noNumber: true,
   });
   if (sel < 0 || sel === items.length - 1) return null;
   if (sel === names.length) return 'custom';
@@ -29,7 +30,7 @@ export async function pickProviderUrl(preset: Preset, current: string): Promise<
   if (urls.length === 1) return urls[0]?.url ?? current;
   const labels = urls.map((u) => `${padDisplay(u.label, 12)} ${u.url || T('empty.paren')}`);
   const items = [...labels, T('pick.noChange')];
-  const sel = await selectMenu({ title: T('pick.providerUrl.title', preset.name), items, hint: T('pick.hint') });
+  const sel = await selectMenu({ title: T('pick.providerUrl.title', preset.name), items, hint: T('pick.hint'), noNumber: true });
   if (sel < 0 || sel === items.length - 1) return current;
   return urls[sel]?.url ?? current;
 }
@@ -53,7 +54,7 @@ export async function pickBaseUrl(current: string, store: Store, catalog: Preset
     }
   }
   const items = [...entries.map((e) => e.label), T('pick.manual'), T('pick.noChange')];
-  const sel = await selectMenu({ title: T('pick.base.title', current || T('empty.paren')), items, hint: T('pick.hint') });
+  const sel = await selectMenu({ title: T('pick.base.title', current || T('empty.paren')), items, hint: T('pick.hint'), noNumber: true });
   if (sel < 0 || sel === items.length - 1) return current;
   if (sel < entries.length) return entries[sel]?.url ?? current;
   const v = await readText(`  ${T('pick.base.manualInput')}`);
@@ -65,7 +66,7 @@ export async function pickBaseUrl(current: string, store: Store, catalog: Preset
 /** 选认证字段：AUTH_TOKEN / API_KEY / 不改。 */
 export async function pickAuth(current: 'AUTH_TOKEN' | 'API_KEY'): Promise<'AUTH_TOKEN' | 'API_KEY'> {
   const items = [T('pick.auth.token'), T('pick.auth.apikey'), T('pick.noChange')];
-  const sel = await selectMenu({ title: T('pick.auth.title', current), items, hint: T('pick.hint') });
+  const sel = await selectMenu({ title: T('pick.auth.title', current), items, hint: T('pick.hint'), noNumber: true });
   if (sel === 0) return 'AUTH_TOKEN';
   if (sel === 1) return 'API_KEY';
   return current;
@@ -80,6 +81,7 @@ export async function pickEffort(current: string): Promise<string> {
     title: T('pick.effort.title', current || T('empty.paren')),
     items,
     hint: T('pick.effort.hint'),
+    noNumber: true,
   });
   if (sel < 0 || sel === items.length - 1) return current;
   if (sel === EFFORT_OPTS.length) return '';
