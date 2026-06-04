@@ -7,8 +7,11 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 `ccx` is a Claude Code API switcher (terminal command: `xx`). It switches Claude Code between the
 official account and third-party Anthropic-compatible APIs (DeepSeek, 智谱GLM, 小米MiMo, …).
 
-The maintained edition is the npm/TypeScript package `@cc-x/cc-x` (command still `xx`) for
-Windows / macOS / Linux. Source is under `src/`, builds to `dist/` via `tsc`, and ships through npm.
+There are now two active lines. The npm/TypeScript package `@cc-x/cc-x` (command still `xx`) remains
+the cross-platform npm line for Windows / macOS / Linux; source is under `src/`, builds to `dist/` via
+`tsc`, and ships through npm. The Go native line under `cmd/` and `internal/` has reached behavior
+parity on Windows and is entering GitHub Release distribution; see `docs/go-rewrite-plan.md` and
+`docs/go-release-guide.md`. Bun/SEA is intentionally skipped.
 
 Before changing the npm edition, read `docs/npm-rewrite-plan.md`; it is the implementation source of
 truth. `@cc-x/cc-x@0.3.0` was first published on 2026-06-02.
@@ -45,25 +48,28 @@ These two actions are the heart of the tool:
   in the registry, or an isolated marker block in a Unix shell startup file. Running sessions are
   unaffected because env vars freeze at process start.
 
-The npm edition implements them in `src/env/session.ts` / `src/env/default.ts`; its
+The npm edition implements them in `src/env/session.ts` / `src/env/default.ts`; the Go edition
+implements them in `internal/env`, `internal/launch`, and `internal/defaults`. The
 `--default-scope process` option exists only for tests.
 
 ## Files
 
 - `src/` — npm/TypeScript edition (CLI, profile CRUD, TUI, i18n, and the two activation modes).
+- `cmd/` / `internal/` — Go native edition (same behavior contract; Windows native Release first).
+- `scripts/build-windows-release.ps1` / `install.ps1` — Go Windows release packaging and installer.
 - `package.json` — npm package metadata. The public package is `@cc-x/cc-x`; the installed command is `xx`.
 - `presets.json` — the **供应商 (provider) catalog** shown when creating/editing a 配置 (profile). Each
   entry is `{ name, auth, urls:[{label,url}], models:{opus,sonnet,haiku}, effort? }`. Picking a provider
   auto-fills the profile's base URL (a chooser appears if it has multiple `urls`, e.g. an API endpoint vs
   a token-plan endpoint) plus the recommended model mappings and auth field. Add an entry here to offer
-  a new provider, no code change needed. The npm edition has built-in fallbacks.
+  a new provider, no code change needed. Both editions have built-in fallbacks.
 - `README.md` / `README.en.md` — keep these in sync; they are the primary user docs.
 
 ## Runtime data (not in repo)
 
 - `~/.cc-mini/providers.json` — user's profiles, **including plaintext keys**. Created on first run from
   built-in defaults (官方 + DeepSeek + 智谱GLM + 小米MiMo, keys empty). The npm edition reads/writes it via
-  `loadStore` / `saveStore`. Never commit this.
+  `loadStore` / `saveStore`; the Go edition reads/writes it via `internal/config`. Never commit this.
 
 ## Common commands
 
@@ -73,6 +79,13 @@ npm run typecheck
 npm run build
 node .\dist\index.js --version
 node .\dist\index.js --list
+
+# Go native line (Go may be installed at ~/go-sdk/go/bin/go.exe on this machine)
+$go = "$HOME\go-sdk\go\bin\go.exe"
+& $go test ./...
+& $go vet ./...
+& $go build ./cmd/xx
+.\scripts\build-windows-release.ps1 -Version 0.4.0
 
 # Published package
 npm install -g @cc-x/cc-x

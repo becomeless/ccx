@@ -27,7 +27,10 @@
     "xx": "dist/index.js"
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "!dist/release/**",
+    "!dist/**/*.exe",
+    "!dist/**/*.zip",
     "presets.json",
     "README.md",
     "README.en.md"

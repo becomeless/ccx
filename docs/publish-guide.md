@@ -57,8 +57,9 @@ npm pack --dry-run
 `npm pack --dry-run` 应该列出约 24 个文件：`LICENSE`、`README*.md`、`dist/**/*.js`、`package.json`、`presets.json`。
 **如果看到 `.cc-mini`、`providers.json`、`node_modules`、`.env` 之类——立刻停下找我**（说明 `files` 字段或 `.gitignore` 出问题了）。
 
-> 我们用的是 `package.json` 里的 `files: ["dist","presets.json","README.md","README.en.md"]` 白名单，
-> 所以 `src/`、`_smoke/`、`docs/`、`node_modules/` 默认都不会被发布。`LICENSE` 由 npm 自动带上。
+> 我们用的是 `package.json` 里的白名单：只收 `dist/**/*.js`、根目录 `presets.json`、`README.md`、`README.en.md`，
+> 并显式排除 `dist/release/**`、`dist/**/*.exe`、`dist/**/*.zip`，所以 Go Release 产物、`src/`、`_smoke/`、
+> `docs/`、`node_modules/` 默认都不会被发布。`LICENSE` 由 npm 自动带上。
 
 可选但推荐——**本机端到端验一遍编译产物**（不污染你的全局）：
 ```bash

@@ -1,0 +1,160 @@
+package i18n
+
+// msg 是一条消息的中英文。
+type msg struct {
+	zh string
+	en string
+}
+
+// messages 是 i18n 消息目录：key -> {zh, en}。与 npm 版 src/i18n/messages.ts 保持同步。
+// 约定：所有 user-facing 字符串都走 T()；逻辑层不裸写中文。占位符 {0} {1} … 由 T(key, args...) 按序替换。
+var messages = map[string]msg{
+	// —— CLI ——
+	"cli.desc": {
+		zh: "Claude Code API 切换器：在官方账号与第三方 Anthropic 兼容 API 间切换。",
+		en: "Claude Code API switcher: switch between the official account and third-party Anthropic-compatible APIs.",
+	},
+	"cli.arg.name":     {zh: "目标配置名；省略则打开交互菜单", en: "target profile name; omit to open the menu"},
+	"cli.opt.session":  {zh: "本次启用：仅当前终端设环境变量并启动 claude（阅后即焚）", en: "session: set env for this terminal only and launch claude"},
+	"cli.opt.list":     {zh: "列出所有配置及状态", en: "list all profiles and their state"},
+	"cli.opt.storeDir": {zh: "覆盖配置存储目录（测试用，默认 ~/.cc-mini）", en: "override store dir (testing; default ~/.cc-mini)"},
+	"cli.opt.defaultScope": {
+		zh: "设为默认写到哪：user(持久) / process(不落盘 dry-run，测试用)",
+		en: "set-default scope: user (persist) / process (dry-run, testing)",
+	},
+	"cli.opt.lang":    {zh: "本次界面语言：zh / en", en: "UI language for this run: zh / en"},
+	"cli.opt.version": {zh: "显示版本号", en: "show version"},
+	"cli.opt.help":    {zh: "显示帮助", en: "show help"},
+
+	// —— 列表 / 状态 ——
+	"list.default": {zh: "默认配置：{0}", en: "Default: {0}"},
+	"state.login":  {zh: "登录态", en: "Logged in"},
+	"state.noKey":  {zh: "密钥未填", en: "No key"},
+	"state.apiKey": {zh: "密钥·API_KEY", en: "Key · API_KEY"},
+	"state.hasKey": {zh: "密钥已设", en: "Key set"},
+
+	// —— 供应商显示名（仅官方这种普通名词需要翻译；DeepSeek/GLM/MiMo 是专有名词不翻）——
+	"provider.official": {zh: "官方", en: "Official"},
+
+	// —— 菜单通用 ——
+	"menu.prompt": {zh: "输入序号 (q 取消): ", en: "Enter number (q to cancel): "},
+	"menu.mainTitle": {
+		zh: "cc-x v{0} · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）",
+		en: "cc-x v{0} · Claude Code API switcher     (default = used by bare `claude` in new terminals)",
+	},
+	"menu.mainHint": {
+		zh: "↑↓ 选择 · Enter 进入 · Shift+↑↓（或 PgUp/PgDn）排序 · q 退出",
+		en: "↑↓ move · Enter open · Shift+↑↓ (or PgUp/PgDn) reorder · q quit",
+	},
+	"menu.newProfile": {zh: "＋ 新增配置", en: "+ New profile"},
+	"menu.exit":       {zh: "退出", en: "Exit"},
+	"menu.default":    {zh: "（默认）", en: "(default)"},
+	"menu.comingSoon": {zh: "（该功能下一步实现）", en: "(coming in the next step)"},
+
+	// —— 动作菜单 ——
+	"action.titlePrefix": {zh: "配置：", en: "Profile: "},
+	"action.session": {
+		zh: "本次启用    — 仅当前终端，立即启动 Claude（并行多终端推荐）",
+		en: "Session    — this terminal only, launches Claude now (great for parallel terminals)",
+	},
+	"action.setDefault": {
+		zh: "设为默认    — 新终端裸敲 claude 默认用它（不影响运行中会话）",
+		en: "Set default — used by bare claude in new terminals (running sessions unaffected)",
+	},
+	"action.edit":               {zh: "编辑", en: "Edit"},
+	"action.delete":             {zh: "删除", en: "Delete"},
+	"action.back":               {zh: "返回", en: "Back"},
+	"action.hint":               {zh: "↑↓ 选择 · Enter 确认 · q 返回", en: "↑↓ move · Enter select · q back"},
+	"action.deleteConfirm":      {zh: "确认删除 [{0}]? (y/N): ", en: "Delete [{0}]? (y/N): "},
+	"action.deleteOfficialWarn": {zh: "建议保留『官方』。", en: `Keeping "Official" is recommended.`},
+	"menu.language":             {zh: "🌐 切换到 English", en: "🌐 切换到中文"},
+
+	// —— 通用占位 ——
+	"empty.paren": {zh: "(空)", en: "(empty)"},
+
+	// —— 编辑表单 ——
+	"edit.title": {zh: "编辑配置 （↑↓ 选要改的项，Enter 进入；↓到底可选保存/放弃）", en: "Edit profile (↑↓ pick a field, Enter to edit; save/discard at bottom)"},
+	"edit.hint": {
+		zh: "供应商：选后自动填地址/模型 · 备注随便写 · 回车=不改 · 输入 - =清空",
+		en: `Provider: auto-fills url/models · Enter=keep · type "-" to clear`,
+	},
+	"edit.current":          {zh: "当前：{0}", en: "current: {0}"},
+	"edit.inputHint":        {zh: "回车=不改，输入=替换，- =清空", en: `Enter=keep, type=replace, "-"=clear`},
+	"edit.field.provider":   {zh: "供应商        ", en: "Provider      "},
+	"edit.field.note":       {zh: "备注          ", en: "Note          "},
+	"edit.field.base":       {zh: "API 地址      ", en: "API URL       "},
+	"edit.field.auth":       {zh: "认证字段      ", en: "Auth field    "},
+	"edit.field.key":        {zh: "API 密钥      ", en: "API key       "},
+	"edit.field.opus":       {zh: "opus  → 模型  ", en: "opus  → model "},
+	"edit.field.sonnet":     {zh: "sonnet→ 模型  ", en: "sonnet→ model "},
+	"edit.field.haiku":      {zh: "haiku → 模型  ", en: "haiku → model "},
+	"edit.field.effort":     {zh: "effort 思考档 ", en: "effort level  "},
+	"edit.toggleSecretShow": {zh: "👁  显示密钥明文（当前隐藏）", en: "👁  Show key in plaintext (now hidden)"},
+	"edit.toggleSecretHide": {zh: "🙈 隐藏密钥（当前明文）", en: "🙈 Hide key (now shown)"},
+	"edit.save":             {zh: "保存并返回", en: "Save & back"},
+	"edit.discard":          {zh: "放弃修改", en: "Discard"},
+	"edit.nameEmpty":        {zh: "还没选供应商（或自定义名称），未保存。", en: "No provider/name chosen yet; not saved."},
+	"edit.customName":       {zh: "自定义供应商名称（回车=不改）: ", en: "Custom provider name (Enter=keep): "},
+	"edit.noteInput":        {zh: "备注（回车=不改，- =清空）: ", en: `Note (Enter=keep, "-" clear): `},
+
+	// —— Picker ——
+	"pick.hint":              {zh: "↑↓ 选择 · Enter 确认 · q 不改", en: "↑↓ move · Enter select · q keep"},
+	"pick.noChange":          {zh: "不修改", en: "(no change)"},
+	"pick.manual":            {zh: "手动输入…", en: "Enter manually…"},
+	"pick.provider.title":    {zh: "供应商（当前：{0}）", en: "Provider (current: {0})"},
+	"pick.provider.none":     {zh: "(未选)", en: "(none)"},
+	"pick.provider.custom":   {zh: "自定义（手动填名字）", en: "Custom (type a name)"},
+	"pick.providerUrl.title": {zh: "{0} 有多个 API 地址，选一个", en: "{0} has multiple URLs, pick one"},
+	"pick.base.title":        {zh: "API 地址（当前：{0}）", en: "API URL (current: {0})"},
+	"pick.base.existing":     {zh: "(已有:{0})", en: "(used:{0})"},
+	"pick.base.manualInput":  {zh: "手动输入 API 地址（回车=不改，- =清空）: ", en: `Type API URL (Enter=keep, "-" clear): `},
+	"pick.auth.title":        {zh: "认证字段（当前：{0}）", en: "Auth field (current: {0})"},
+	"pick.auth.token":        {zh: "AUTH_TOKEN  （Bearer，多数第三方中转）", en: "AUTH_TOKEN  (Bearer, most 3rd-party relays)"},
+	"pick.auth.apikey":       {zh: "API_KEY  （x-api-key，官方/少数）", en: "API_KEY  (x-api-key, official/few)"},
+	"pick.effort.title":      {zh: "effort 思考档（当前：{0}）", en: "effort level (current: {0})"},
+	"pick.effort.empty":      {zh: "留空（不设）", en: "Leave empty"},
+	"pick.effort.hint":       {zh: "越往后越深入；auto=模型默认 · q 不改", en: "deeper to the right; auto=model default · q keep"},
+
+	// —— 错误 ——
+	"error.notFound":     {zh: "找不到配置：{0}", en: "Profile not found: {0}"},
+	"error.existing":     {zh: "现有：{0}", en: "Existing: {0}"},
+	"error.storeRead":    {zh: "配置文件读取失败：{0}", en: "Failed to read config file: {0}"},
+	"error.storeCorrupt": {zh: "配置文件解析失败（JSON 语法错误）：{0}", en: "Failed to parse config file (invalid JSON): {0}"},
+	"error.storeFormat":  {zh: "配置文件结构不正确（顶层须为对象、providers 须为数组且条目结构合法）：{0}", en: "Config file has invalid structure (top-level must be an object, providers must be an array with valid profile entries): {0}"},
+	"error.storeCorruptHint": {
+		zh: "为避免误删，未对它做任何改动。请修复后重试；或删除该文件以重新生成默认配置（会丢失已填的密钥）。",
+		en: "Left untouched to avoid data loss. Fix it and retry; or delete the file to regenerate defaults (loses any saved keys).",
+	},
+
+	// —— 本次启用（session）——
+	"session.noKey": {zh: "⚠ 配置 [{0}] 还没填密钥。", en: "⚠ Profile [{0}] has no key set."},
+	"session.launch": {
+		zh: "▶ 本次启用：{0}（仅当前终端，不影响其它终端）",
+		en: "▶ Session: {0} (this terminal only; others unaffected)",
+	},
+	"session.starting": {
+		zh: "正在启动 Claude…（退出 Claude 后回到命令行）",
+		en: "Launching Claude… (returns here after Claude exits)",
+	},
+	"session.noClaude": {zh: "未找到 claude 命令，请确认它在 PATH 中。", en: "claude not found on PATH."},
+
+	// —— 设为默认（default）——
+	"default.writing": {zh: "正在写入用户环境变量…", en: "Writing user environment variables…"},
+	"default.done": {
+		zh: "✓ 已设为默认：{0}  ·  新开终端裸敲 claude 生效（不影响运行中会话）",
+		en: "✓ Default set: {0}  ·  effective in newly opened terminals (running sessions unaffected)",
+	},
+	"default.dryRun": {
+		zh: "（dry-run：--default-scope process，未改系统，仅更新存储）",
+		en: "(dry-run: --default-scope process; system untouched, store only)",
+	},
+	"default.unixWrote": {
+		zh: "已写入 {0}（新开终端生效；或 source 它立即生效）",
+		en: "Wrote {0} (effective in new terminals; or source it now)",
+	},
+	"default.failed": {zh: "设为默认失败：{0}", en: "Failed to set default: {0}"},
+	"default.fishUnsupported": {
+		zh: "⚠ 检测到 fish：v1 暂不支持「设为默认」，请手动设置或改用「本次启用」。",
+		en: `⚠ fish detected: "set default" is unsupported in v1; set manually or use session launch.`,
+	},
+}

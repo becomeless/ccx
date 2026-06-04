@@ -11,9 +11,9 @@ purely through environment variables, so it is **physically incapable of clobber
 plugins, or hooks** — and it lets **multiple terminals each run a different API at the
 same time, without interfering with one another**.
 
-> 🌍 **Cross-platform:** one `npm install -g @cc-x/cc-x` installs it on **Windows / macOS / Linux**
-> (the command is still `xx`; the npm package is `@cc-x/cc-x`), with a built-in **English / Chinese
-> UI toggle**.
+> **Native Windows build:** GitHub Releases provide a lightweight `xx.exe` with no Node.js
+> requirement. On **macOS / Linux**, or if you prefer npm, use `npm install -g @cc-x/cc-x`
+> (the terminal command is still `xx`).
 
 ---
 
@@ -67,15 +67,30 @@ place, or prefer an all-in-one tool.
 
 ## Requirements
 
-- **Node.js ≥ 18** — needed by the cross-platform npm edition (`@cc-x/cc-x`). Claude Code itself
-  depends on Node, so you most likely already have it.
+- **Native Windows build:** Windows 10/11 x64; no Node.js required.
+- **Cross-platform npm build:** Node.js ≥ 18 (package `@cc-x/cc-x`).
 - **Claude Code installed (`claude` on PATH)** — "Use this session" launches `claude`.
 
-> Fully verified on **Windows**; "Set as default" on **macOS / Linux** (writing the shell
-> startup file) is the new cross-platform capability, while "Use this session" is identical
-> everywhere. Feedback on other platforms is welcome.
+> The native Go build ships **Windows x64** first; native macOS / Linux assets are planned
+> next. The npm build still covers Windows / macOS / Linux.
 
 ## Install
+
+**Native Windows build (recommended)**
+
+```powershell
+irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex
+```
+
+The installer downloads the latest GitHub Release asset named `ccx_*_windows_amd64.zip`,
+installs it to `%LOCALAPPDATA%\Programs\ccx`, and adds that directory to the user PATH.
+Open a new terminal afterwards and run:
+
+```powershell
+xx --version
+```
+
+**Cross-platform npm build**
 
 ```bash
 npm install -g @cc-x/cc-x
@@ -89,6 +104,18 @@ Then type `xx` in any terminal. Update with `npm update -g @cc-x/cc-x`; remove w
 ```bash
 git clone https://github.com/becomeless/cc-x
 cd cc-x
+```
+
+Native Windows build with version injection and a Release zip:
+
+```powershell
+.\scripts\build-windows-release.ps1 -Version 0.4.0
+.\dist\release\ccx_0.4.0_windows_amd64\xx.exe --version
+```
+
+npm build:
+
+```bash
 npm install
 npm run build
 npm link    # then `xx` is available
@@ -296,7 +323,12 @@ not support it. DeepSeek recommends `max`; leave others empty.
 
 - **Clear env vars first**: run `xx` → Set as default → 官方 to clear all managed variables.
 - Remove the tool itself:
-  - `npm uninstall -g @cc-x/cc-x`;
+  - native Windows build: delete `%LOCALAPPDATA%\Programs\ccx` and remove that directory
+    from the user PATH, or run:
+    ```powershell
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1; & ([scriptblock]::Create($s)) -Uninstall"
+    ```
+  - npm build: `npm uninstall -g @cc-x/cc-x`;
   - on macOS / Linux, also remove the `# >>> xx >>>` marker block from your shell startup file
     if you ever used "Set as default".
 - Delete the data dir `~/.cc-mini/`.
