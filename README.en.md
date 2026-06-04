@@ -1,18 +1,13 @@
 # ccx
 
+> `xx` — one command to switch Claude Code between APIs. **Zero config risk.**
+>
 > [简体中文](README.md) | English
 
-**A Claude Code API switcher** (terminal command `xx`). One command to switch Claude Code
-between the official account and third-party Anthropic-compatible APIs (DeepSeek, Zhipu GLM,
-Xiaomi MiMo…).
-
-What sets it apart from other switchers — **it never writes any Claude Code config file**;
-switching works purely through environment variables. So:
-
-- 🛡️ **Zero config risk**: it never touches `~/.claude/settings.json`, never opens
-  `~/.claude.json` (where MCP lives) — **physically incapable** of losing your MCP / plugins / hooks.
-- 🔀 **Parallel terminals**: each terminal can run a different API without interference (process-level isolation).
-- ⚡ **One command**: pick in `xx`, then use it for this terminal only or set it as the future default.
+Switching Claude Code between the official account and third-party APIs means juggling
+environment variables — or trusting a tool that rewrites your Claude config. ccx takes a
+different path: **switching happens purely at the environment-variable layer.** It never
+reads or writes any Claude Code config file. Your MCP, plugins, hooks — it won't touch them.
 
 ```text
   cc-x v0.4.4 · Claude Code API switcher     (default = used by bare `claude` in new terminals)
@@ -22,12 +17,9 @@ switching works purely through environment variables. So:
      智谱GLM                    [No key]
      小米MiMo                   [No key]
 
-     New profile
-     切换到中文
-     Update check: off
-     Exit
+     New profile  ·  切换到中文  ·  Update check: off  ·  Exit
 
-  ↑↓ move · Enter open · Shift+↑↓ (or PgUp/PgDn) reorder · q quit
+  ↑↓ move · Enter open · Shift+↑↓ reorder · q quit
 ```
 
 > **Two builds**: the **native Go build** is recommended — GitHub Releases provide a lightweight
@@ -36,304 +28,205 @@ switching works purely through environment variables. So:
 
 ---
 
-## ccx vs cc-switch
-
-cc-switch is an excellent all-in-one **GUI**; ccx takes the opposite, **minimal** approach:
-
-| | ccx (command `xx`) | cc-switch |
-|---|---|---|
-| Form | Terminal command (lightweight) | Desktop GUI (full-featured) |
-| Scope | Only switches the API | API + MCP + multiple CLIs + prompts… |
-| Touches config files? | **No** (env vars only) | Rewrites config files from its own DB |
-| Can lose MCP / plugins? | **Impossible by design** | Users have reported it overwriting them |
-| Different API per terminal | **Native** (process-level isolation) | Global switch; sessions can interfere |
-
-- **ccx fits you if you** live in the terminal, often run several terminals with different APIs
-  in parallel, have been burned by a switcher corrupting your config/MCP, or just want that one job done.
-- **cc-switch fits you if you** want a GUI, need to manage MCP and several AI CLIs in one place,
-  or prefer an all-in-one tool.
-
 ## Install
 
-> Install **Claude Code** first (`claude` on PATH) — "Use this session" launches it. **Open a new terminal** after installing.
+> Install [Claude Code](https://claude.ai/code) first (`claude` on PATH). **Open a new terminal** after installing.
 
-**Windows native (recommended)**
+**Windows (native, recommended)**
 
 ```powershell
 irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex
 ```
 
-Installs to `%LOCALAPPDATA%\Programs\ccx` and **adds it to your user PATH automatically (no manual step)**.
-Just **open a new terminal** afterward to use `xx` — already-open terminals can't see the new PATH; that's a
-Windows limitation, not a manual step you have to do.
+Installs to `%LOCALAPPDATA%\Programs\ccx` and adds it to your user PATH automatically — no manual step.
 
-**macOS / Linux native (recommended)**
+**macOS / Linux (native, recommended)**
 
 ```bash
 curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh
 ```
 
-Installs to `~/.local/bin` (override with `CCX_INSTALL_DIR`) and verifies `checksums.txt`. That's the standard
-XDG bin dir, usually already on PATH; only if it isn't does the installer print a hint to add it (the Unix
+Installs to `~/.local/bin`. If that directory isn't on PATH, the installer prints a hint (the Unix
 installer deliberately doesn't edit your shell config).
 
-**npm, any platform** (needs Node.js ≥ 18)
+**npm (any platform, Node.js ≥ 18)**
 
 ```bash
 npm install -g @cc-x/cc-x
 ```
 
-Open a new terminal and run `xx --version` to verify.
+---
 
-## Quick start (60 seconds)
+## 60-second quick start
 
-1. Open a new terminal and run `xx`. The first run creates 4 default profiles in
-   `~/.cc-mini/providers.json` (Official + DeepSeek + Zhipu GLM + Xiaomi MiMo), **with empty keys**.
-2. ↑↓ to the one you want → Enter → **Edit** → pick **API key** and paste your key (done locally).
-3. Then either:
-   - **Set default**: future **new** terminals running bare `claude` use it.
-   - **Use this session**: launch Claude right now in this terminal (temporary, parallel-friendly).
+The first run of `xx` seeds 4 profiles in `~/.cc-mini/providers.json` (Official + DeepSeek +
+Zhipu GLM + Xiaomi MiMo), **with empty keys**.
 
-## Two activation modes (core concept)
-
-This is the key to ccx. Which API Claude uses is decided by **environment variables**; ccx offers two scopes:
-
-| | Use this session | Set default |
-|---|---|---|
-| Mechanism | Sets env vars for **this one process** and launches `claude` | Writes the API as **user environment variables** |
-| Scope | This terminal only, **ephemeral** (gone when you close it) | **New** terminals running bare `claude` use it |
-| Effect on running sessions | **None** | **None** (env vars freeze at process start) |
-| Typical use | Several terminals in parallel, each on its own API | Set your everyday "main API" |
-
-**Parallel example**: open 4 terminals and run `xx Official -s`, `xx DeepSeek -s`, `xx 智谱GLM -s`,
-`xx 小米MiMo -s` — four Claudes running at once, each on its own API, never interfering.
-
-**Why not switch via a global config file?** Because `settings.json` is shared globally; editing it hits
-**running** sessions (a classic symptom: another terminal suddenly reports `... cannot be parsed as a URL`).
-Environment variables are process-isolated, sidestepping that trap.
-
-## Command-line usage
+1. `xx` → ↑↓ to a profile → Enter → **Edit** → **API key** → paste your key
+2. Then either:
+   - **Use this session** — launch Claude now in this terminal (temporary, parallel-friendly)
+   - **Set default** — bare `claude` in new terminals uses it from now on
 
 ```bash
-xx                       # open the interactive menu
-xx DeepSeek              # "Set default" to the profile named DeepSeek
-xx DeepSeek -s           # "Use this session" for DeepSeek and launch Claude (--session)
-xx -l                    # list all profiles and their state (--list)
-xx --lang en             # UI language for this run (zh / en)
-xx --help                # all options
+xx                 # open the menu
+xx DeepSeek        # set as default
+xx DeepSeek -s     # use this session, launch Claude now (--session)
+xx -l              # list all profiles and state (--list)
+xx --help          # all options
 ```
 
-`xx <name>` defaults to "Set default"; add `-s` / `--session` for "Use this session".
+---
 
-## Menus & editing
+## Two modes (the key concept)
 
-Run `xx` for the main menu: `↑↓` move, `Enter` select, `q` / `Esc` quit. With a profile selected,
-**`Shift+↑↓` (or `PgUp`/`PgDn`) reorders** it, saved instantly.
+Which API Claude uses is decided by **environment variables**. ccx offers two scopes:
 
-- **Select a profile → Enter** for the action menu: **Use this session** / **Set default** / **Edit** /
-  **Delete** (with confirm; keep "Official") / **Back**.
-- **New profile** — create an empty profile and open the edit form.
-- **Switch to 中文 / English** — instant language toggle, remembered in `lang` in `~/.cc-mini/providers.json`.
-- **Update check: off / notify** — see [Checking for updates](#checking-for-updates).
-- **Exit**.
+| | Use this session (`-s`) | Set default |
+|---|---|---|
+| Mechanism | Sets env vars on this process + launches `claude` | Writes **user environment variables** |
+| Scope | This terminal only; **gone when you close it** | **New** terminals going forward |
+| Running sessions | Unaffected | Unaffected (env freezes at process start) |
+| Best for | Parallel terminals on different APIs | Set your daily-driver API once |
 
-```text
-  Profile: DeepSeek — work    [Key set]
+**Parallel example**: open 4 terminals and run `xx Official -s`, `xx DeepSeek -s`, `xx 智谱GLM -s`,
+`xx 小米MiMo -s` — four Claudes running at once, each on its own API, zero interference.
 
-   ▶ Session    — this terminal only, launches Claude now (great for parallel terminals)
-     Set default — used by bare claude in new terminals (running sessions unaffected)
-     Edit
-     Delete
-     Back
+**Why not a global config file?** `settings.json` is shared globally; editing it hits running
+sessions (classic symptom: another terminal suddenly says `cannot be parsed as a URL`).
+Environment variables are naturally process-isolated.
 
-  ↑↓ move · Enter select · q back
-```
+---
 
-**Edit form**: `↑↓` pick a field, `Enter` to change; "Save & back" / "Discard" at the bottom. Inside a
-field, **Enter = keep**, `-` = clear, `Esc` = cancel that field. The first field, **Provider**, is the key
-one: picking a provider (from the preset catalog) **auto-fills** the API URL, the three model mappings, and
-the auth field (providers with multiple URLs let you choose one first); "Note" is free text.
+## ccx vs cc-switch
 
-```text
-  Edit profile (↑↓ pick a field, Enter to edit; save/discard at bottom)
+cc-switch is an excellent full-featured GUI; ccx takes the opposite, minimal approach.
 
-   ▶ Provider      : DeepSeek
-     Note          : work
-     API URL       : https://api.deepseek.com/anthropic
-     Auth field    : AUTH_TOKEN
-     API key       : ********
-     opus  → model : deepseek-v4-pro
-     sonnet→ model : deepseek-v4-pro
-     haiku → model : deepseek-v4-flash
-     effort level  : max
+| | ccx (`xx`) | cc-switch |
+|---|---|---|
+| Form | Terminal command (lightweight) | Desktop GUI (full-featured) |
+| Scope | Just API switching | API + MCP + multiple CLIs + prompts… |
+| Touches config? | **Never** (env vars only) | Rewrites config from its own DB |
+| Can lose MCP? | **Physically impossible** | Users have reported it |
+| Parallel terminals | **Native** (process isolation) | Global switch; sessions can clash |
 
-     Show key in plaintext (now hidden)
+- → **ccx**: terminal natives, parallel-session runners, anyone burned by a config-wrecking switcher, "just switch the API" people
+- → **cc-switch**: GUI preference, all-in-one MCP + multi-CLI management
 
-     Save & back
-     Discard
-```
+---
 
-## Configuration reference
+## Design philosophy
+
+> ccx holds one rule: **simpler is better.**
+
+One job (switch the API). Touch as little as possible. Before adding a feature, ask whether it can be left out.
+
+This isn't laziness — it's intentional. The smaller the tool, the fewer surfaces for failure.
+Your MCP, plugins, and hooks belong in Claude Code's own config files; ccx doesn't manage them,
+and therefore can't break them.
+
+Issues / PRs welcome — **changes that make it simpler are more welcome than ones that make it
+more powerful.** Anything that writes a Claude Code config file will not be accepted.
+
+---
+
+## Configuration
 
 ### Fields
 
 | Field | Environment variable | Notes |
 |---|---|---|
-| Provider | — | Picked from the preset catalog; auto-fills URL/models/auth. Also the unique key; duplicates get " 2/3…" |
-| Note | — | Free text to tell apart multiple profiles of the same provider |
-| API URL | `ANTHROPIC_BASE_URL` | Third-party endpoint; empty for Official = use the logged-in session |
-| Auth field | — | Put the key in `AUTH_TOKEN` or `API_KEY` (see below) |
+| API URL | `ANTHROPIC_BASE_URL` | Third-party endpoint; empty for Official = logged-in session |
+| Auth field | — | `AUTH_TOKEN` (default) or `API_KEY`; **wrong one = 401** |
 | API key | `ANTHROPIC_AUTH_TOKEN` or `ANTHROPIC_API_KEY` | Value for the chosen auth field |
-| opus → model | `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model the `opus` tier maps to |
-| sonnet → model | `ANTHROPIC_DEFAULT_SONNET_MODEL` | Model the `sonnet` tier maps to |
-| haiku → model | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Model the `haiku` tier maps to; **background tasks use it too** |
-| effort level | `CLAUDE_CODE_EFFORT_LEVEL` | Thinking depth, see below |
+| opus → model | `ANTHROPIC_DEFAULT_OPUS_MODEL` | Three-tier model mapping; haiku also covers background tasks — **must be set** |
+| sonnet → model | `ANTHROPIC_DEFAULT_SONNET_MODEL` | |
+| haiku → model | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | |
+| effort level | `CLAUDE_CODE_EFFORT_LEVEL` | `low`–`max`; `auto` = model default; empty = unset. Third parties may not honor it |
 
-> ccx **deliberately does not set** `ANTHROPIC_MODEL` or touch `model` in `settings.json`. You pick the tier
-> live with `/model opus\|sonnet\|haiku`, and the mapping translates it to the provider's real model.
-
-### Model mapping & effort
-
-**Why third parties need model mapping:** their endpoints only know their own model names (e.g.
-`deepseek-v4-pro`), while Claude Code calls `claude-*` by default — without mapping it errors out. Background
-tasks use the `haiku` tier, so `haiku → model` **must be set too** (otherwise: "main chat works but errors
-now and then").
-
-**effort (thinking depth):** `low < medium < high < xhigh < max` — higher is smarter but slower and burns
-more tokens; `auto` = model default; empty = unset. Note **effort is a Claude-model feature; whether a third
-party honors it depends on their implementation**.
-
-Reference config per provider (defaults are pre-seeded):
-
-| Profile | BASE_URL | OPUS / SONNET | HAIKU (incl. background) | effort |
-|---|---|---|---|---|
-| Official | (empty = logged-in) | — | — | empty / `auto` |
-| DeepSeek | `https://api.deepseek.com/anthropic` | `deepseek-v4-pro` | `deepseek-v4-flash` | `max` (recommended) |
-| Zhipu GLM | `https://open.bigmodel.cn/api/anthropic` | `GLM-4.7` | `glm-4.5-air` | empty |
-| Xiaomi MiMo | `https://api.xiaomimimo.com/anthropic` (pay-as-you-go)<br>`https://token-plan-cn.xiaomimimo.com/anthropic` (TokenPlan) | `mimo-v2.5-pro` | `mimo-v2.5-pro` | empty |
-
-> Model names change as providers update; follow each provider's official docs.
+> ccx **deliberately does not set** `ANTHROPIC_MODEL`. Use `/model opus|sonnet|haiku` in-session;
+> the mapping table translates to the provider's real model name.
 
 ### Auth field: AUTH_TOKEN vs API_KEY
 
 | Option | Request header | Used by |
 |---|---|---|
-| `ANTHROPIC_AUTH_TOKEN` (default) | `Authorization: Bearer <key>` | Most third-party relays |
-| `ANTHROPIC_API_KEY` | `x-api-key: <key>` | The official API, and a few relays that only accept this |
+| `AUTH_TOKEN` (default) | `Authorization: Bearer <key>` | Most third-party relays |
+| `API_KEY` | `x-api-key: <key>` | The official API, and a few relays |
 
-The wrong one yields 401. Switch it under "Auth field"; on switch ccx clears the other to avoid a leftover conflict.
+### Pre-seeded profiles
 
-## Multiple accounts & maintaining presets
+| Profile | BASE_URL | OPUS / SONNET | HAIKU (incl. background) | effort |
+|---|---|---|---|---|
+| Official | empty (logged-in) | — | — | — |
+| DeepSeek | `api.deepseek.com/anthropic` | `deepseek-v4-pro` | `deepseek-v4-flash` | `max` (recommended) |
+| Zhipu GLM | `open.bigmodel.cn/api/anthropic` | `GLM-4.7` | `glm-4.5-air` | — |
+| Xiaomi MiMo | `api.xiaomimimo.com/anthropic` | `mimo-v2.5-pro` | `mimo-v2.5-pro` | — |
 
-**Multiple accounts**: several keys for the same provider (personal / work)? Just create multiple profiles —
-the second one off the same provider auto-names to `DeepSeek 2`; use **Note** to label them, shown as
-"Provider — Note".
+> Model names change as providers update. Xiaomi MiMo has both pay-as-you-go and TokenPlan
+> endpoints; you pick one when selecting the provider.
 
-**Maintaining the provider catalog**: `presets.json` (shipped with the tool) is the catalog the "Provider"
-picker reads. Add a provider to offer a new one — no code change:
+### Advanced
 
-```json
-[
-  {
-    "name": "DeepSeek",
-    "auth": "AUTH_TOKEN",
-    "effort": "max",
-    "urls": [ { "label": "Anthropic-compatible", "url": "https://api.deepseek.com/anthropic" } ],
-    "models": { "opus": "deepseek-v4-pro", "sonnet": "deepseek-v4-pro", "haiku": "deepseek-v4-flash" }
-  }
-]
-```
+- **Multiple accounts**: create multiple profiles from the same provider — names auto-suffix
+  with ` 2`, ` 3`… Use **Note** to tell them apart, shown as "Provider — Note".
+- **Custom providers**: `presets.json` is the provider catalog; add a JSON entry to offer a new
+  one, no code change. Drop `~/.cc-mini/presets.json` to override the shipped catalog.
+- **First-launch login prompt**: third-party APIs may still show onboarding. Add
+  `"hasCompletedOnboarding": true` to `~/.claude.json` (**only this key** — don't overwrite
+  the file; it also holds your MCP config).
+- **Update check**: toggle to "notify" in the menu — a yellow one-liner appears atop the menu
+  when a new release is out. At most one check per day; never auto-upgrades.
 
-- `urls` can hold **several** (e.g. API vs TokenPlan endpoints); you choose one when picking the provider.
-- `models` are the recommended three-tier mapping, auto-filled and still editable. `auth` / `effort` are optional.
-- You can also drop a custom catalog at `~/.cc-mini/presets.json` to override the shipped one (highest priority).
+---
 
-## Checking for updates
+## Data & files
 
-The **Update check** toggle in the main menu is **off by default**. Switch it to **notify** and ccx shows a
-one-line yellow notice atop the menu when a newer release exists, with the upgrade command (it never
-auto-downloads — you decide when to upgrade).
-
-- No GitHub API; checks at most once a day, cached in `~/.cc-mini/update-check.json`; offline/failure is silent.
-- The check runs in the background and won't slow startup — a new version usually shows up on your **next** launch.
-- To upgrade, just re-run the install command (native: the one-liner under [Install](#install); npm:
-  `npm i -g @cc-x/cc-x@latest`).
-
-## First run: skip login / onboarding
-
-With a third-party API (token auth), Claude Code **may still show a login / onboarding screen on first
-launch** — because it hasn't recorded "onboarding done". One-time fix: in `~/.claude.json` (Windows:
-`C:\Users\<you>\.claude.json`), **add a single key** to the top-level `{ }` (keep everything else):
-
-```json
-{
-  "hasCompletedOnboarding": true
-}
-```
-
-> ⚠️ This file also holds your MCP config — **only add the key, never overwrite the whole file**. ccx
-> deliberately won't edit it for you; it's exactly the file a tool shouldn't touch.
-
-## Data & file locations
-
-- **Profiles (plaintext keys, keep local)**: `~/.cc-mini/providers.json` (also holds `lang` and `update`).
-- **Provider catalog**: the shipped `presets.json`, or `~/.cc-mini/presets.json` to override.
-- **Update-check cache**: `~/.cc-mini/update-check.json`.
+- **Profiles (plaintext keys, keep local)**: `~/.cc-mini/providers.json` (also holds `lang` and `update`)
+- **Provider catalog**: shipped `presets.json`; override at `~/.cc-mini/presets.json`
 - **"Set default" writes user environment variables** (not Claude config files):
-  - **Windows** → registry `HKCU\Environment` + one change broadcast;
-  - **macOS / Linux** → a `# >>> xx >>>` … `# <<< xx <<<` marker block in the shell startup file
-    (idempotent rewrite, chosen by `$SHELL`).
-  - Same semantics either way: **only affects new terminals**; switching to "Official" clears all managed vars.
-- **It modifies no Claude config file.**
+  - Windows → registry `HKCU\Environment` + one change broadcast
+  - Unix → `# >>> xx >>>` … `# <<< xx <<<` marker block in shell startup file (idempotent rewrite, chosen by `$SHELL`)
+  - Same semantics either way: **only affects new terminals**; switching to "Official" clears all managed vars
+- **No Claude Code config file is ever modified.**
 
-ccx only ever touches these 7 "managed" variables (and clears the ones a target profile doesn't use):
+ccx only touches these 7 "managed" variables (and clears the ones a target profile doesn't use):
 `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `ANTHROPIC_DEFAULT_OPUS_MODEL`,
 `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `CLAUDE_CODE_EFFORT_LEVEL`.
 
-> 💡 To change `settings.json`, use Claude Code's own `/update-config` and describe what you want in natural
-> language (e.g. "allow npm commands") — safer than letting an external tool rewrite it.
+> 💡 To change `settings.json`, use Claude Code's own `/update-config` and describe what you want
+> in natural language (e.g. "allow npm commands") — safer than letting an external tool rewrite it.
+
+---
 
 ## FAQ
 
-**Does switching in one terminal affect another running one?** No. "Use this session" is process-level; "Set
-default" only affects **new** processes — running sessions froze their env at start.
+**Does switching in one terminal affect another?** No. "Use this session" is process-scoped;
+"Set default" only affects new terminals.
 
-**I "Set default" but bare `claude` here is still the old one?** Expected — this terminal has the old env.
-**Open a new terminal.**
+**I set default but bare `claude` here is still the old one?** Expected — this terminal has
+the old env. Open a new one.
 
-**Seeing `... cannot be parsed as a URL`?** A profile's API URL is an invalid value; Edit to fix or delete it.
+**Seeing `cannot be parsed as a URL`?** A profile's API URL is invalid. Edit to fix or delete it.
 
-**Set effort on a third party but nothing happens?** effort is a Claude-model feature; third parties may not
-support it. DeepSeek recommends `max`; otherwise leave it empty.
+**Set effort on a third party but nothing happens?** effort is a Claude-model feature; third
+parties may not support it. DeepSeek recommends `max`; leave empty otherwise.
 
-**Are keys safe?** Stored in plaintext under your home dir, protected by your account. Don't commit
+**Are keys safe?** Plaintext in your home dir, protected by your OS account. Don't commit
 `providers.json` to a repo.
+
+---
 
 ## Uninstall
 
-1. **Clear env vars first**: run "Set default → Official" once in `xx` to clear all managed variables.
-2. **Remove the binary**:
-   - Windows native:
-     ```powershell
-     powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1; & ([scriptblock]::Create($s)) -Uninstall"
-     ```
-   - macOS / Linux native:
-     ```bash
-     curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh -s -- --uninstall
-     ```
-   - npm: `npm uninstall -g @cc-x/cc-x`.
-   - macOS / Linux, if you used "Set default", also delete the `# >>> xx >>>` marker block in your shell startup file.
-3. Delete the data dir `~/.cc-mini/`.
+1. Clear env vars: `xx` → Official → Set default
+2. Remove the binary:
+   - Windows native: re-run the [install command](#install) with `-Uninstall`
+   - macOS / Linux native: `curl ... | sh -s -- --uninstall`; if you used Set default, also
+     delete the `# >>> xx >>>` block in your shell startup file
+   - npm: `npm uninstall -g @cc-x/cc-x`
+3. Delete data: `rm -rf ~/.cc-mini`
 
-## Design principles
-
-ccx was born from friction I kept hitting with cc-switch — not a criticism; it's powerful, I just wanted a
-lighter path. So ccx holds one principle: **simpler is better.** Do one job (switch the API); touch as little
-as possible (above all, **never write a Claude Code config file**); before adding a feature, ask whether it
-can be left out.
-
-Issues / PRs welcome — but **changes that make it simpler are more welcome than ones that make it more
-powerful**, and anything that writes a Claude Code config file will not be accepted.
+---
 
 ## License
 
