@@ -38,7 +38,7 @@ reads or writes any Claude Code config file. Your MCP, plugins, hooks — it won
 irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex
 ```
 
-Installs to `%LOCALAPPDATA%\Programs\ccx` and adds it to your user PATH automatically — no manual step.
+The installer chooses a per-user directory and adds it to your user PATH automatically, so no administrator rights or manual PATH edits are needed.
 
 **macOS / Linux (native, recommended)**
 
@@ -46,8 +46,8 @@ Installs to `%LOCALAPPDATA%\Programs\ccx` and adds it to your user PATH automati
 curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh
 ```
 
-Installs to `~/.local/bin`. If that directory isn't on PATH, the installer prints a hint (the Unix
-installer deliberately doesn't edit your shell config).
+The installer places `xx` in a user-level command directory. If that directory isn't on PATH,
+it prints a hint (the Unix installer deliberately doesn't edit your shell config).
 
 **npm (any platform, Node.js ≥ 18)**
 
@@ -116,16 +116,13 @@ cc-switch is an excellent full-featured GUI; ccx takes the opposite, minimal app
 
 ## Design philosophy
 
-> ccx holds one rule: **simpler is better.**
+> ccx cares more about boundaries than features.
 
-One job (switch the API). Touch as little as possible. Before adding a feature, ask whether it can be left out.
+Claude Code already has its own config system, MCP ecosystem, and session state. ccx is not trying to become a control panel above it, or to copy user config into another database. It stands at one narrow point before Claude Code starts: prepare the 7 managed environment variables, then let Claude Code run.
 
-This isn't laziness — it's intentional. The smaller the tool, the fewer surfaces for failure.
-Your MCP, plugins, and hooks belong in Claude Code's own config files; ccx doesn't manage them,
-and therefore can't break them.
+That constraint is deliberate: no writes to Claude Code config files, no MCP management, no automatic migration, no resident background controller. If process environment variables can solve it, ccx avoids global files; if a choice matters, the user makes it explicitly. Doing less keeps the failure surface small.
 
-Issues / PRs welcome — **changes that make it simpler are more welcome than ones that make it
-more powerful.** Anything that writes a Claude Code config file will not be accepted.
+Issues / PRs are welcome, but the direction is clear: **make switching steadier, clearer, and less intrusive** before adding broader management power. Anything that writes a Claude Code config file will not be accepted.
 
 ---
 
@@ -158,9 +155,9 @@ more powerful.** Anything that writes a Claude Code config file will not be acce
 | Profile | BASE_URL | OPUS / SONNET | HAIKU (incl. background) | effort |
 |---|---|---|---|---|
 | Official | empty (logged-in) | — | — | — |
-| DeepSeek | `api.deepseek.com/anthropic` | `deepseek-v4-pro` | `deepseek-v4-flash` | `max` (recommended) |
-| Zhipu GLM | `open.bigmodel.cn/api/anthropic` | `GLM-4.7` | `glm-4.5-air` | — |
-| Xiaomi MiMo | `api.xiaomimimo.com/anthropic` | `mimo-v2.5-pro` | `mimo-v2.5-pro` | — |
+| DeepSeek | `https://api.deepseek.com/anthropic` | `deepseek-v4-pro` | `deepseek-v4-flash` | `max` (recommended) |
+| Zhipu GLM | `https://open.bigmodel.cn/api/anthropic` | `GLM-4.7` | `glm-4.5-air` | — |
+| Xiaomi MiMo | `https://api.xiaomimimo.com/anthropic` | `mimo-v2.5-pro` | `mimo-v2.5-pro` | — |
 
 > Model names change as providers update. Xiaomi MiMo has both pay-as-you-go and TokenPlan
 > endpoints; you pick one when selecting the provider.
@@ -214,15 +211,30 @@ parties may not support it. DeepSeek recommends `max`; leave empty otherwise.
 **Are keys safe?** Plaintext in your home dir, protected by your OS account. Don't commit
 `providers.json` to a repo.
 
+**Can I choose the install directory?** Yes. The Windows installer supports `-InstallDir`;
+macOS / Linux supports `CCX_INSTALL_DIR` or `--install-dir`. Most users should keep the default;
+if you change it, pass the same directory when uninstalling.
+
+**Can I download the binary manually?** Yes. Go to [GitHub Releases](https://github.com/becomeless/cc-x/releases/latest),
+download the zip / tar.gz for your platform, extract it, and put `xx` / `xx.exe` somewhere on PATH.
+For most users, the install command above is better: it picks the platform, verifies checksums, and handles PATH / uninstall.
+
 ---
 
 ## Uninstall
 
 1. Clear env vars: `xx` → Official → Set default
 2. Remove the binary:
-   - Windows native: re-run the [install command](#install) with `-Uninstall`
-   - macOS / Linux native: `curl ... | sh -s -- --uninstall`; if you used Set default, also
-     delete the `# >>> xx >>>` block in your shell startup file
+   - Windows native:
+     ```powershell
+     $s = irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1
+     & ([scriptblock]::Create($s)) -Uninstall
+     ```
+     This removes the installed files and automatically removes the matching user PATH entry.
+   - macOS / Linux native:
+     ```bash
+     curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh -s -- --uninstall
+     ```
    - npm: `npm uninstall -g @cc-x/cc-x`
 3. Delete data: `rm -rf ~/.cc-mini`
 
