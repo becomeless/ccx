@@ -22,7 +22,7 @@ func currentTerminalTarget(store *config.Store) string {
 		return i18n.T("terminal.official")
 	}
 
-	host := hostOf(base)
+	host := HostOf(base)
 	for _, p := range store.Providers {
 		pbase := strings.TrimSpace(config.GetProviderEnvMap(p)["ANTHROPIC_BASE_URL"])
 		if sameBase(base, pbase) {
@@ -36,10 +36,11 @@ func sameBase(a, b string) bool {
 	return strings.TrimRight(strings.TrimSpace(a), "/") == strings.TrimRight(strings.TrimSpace(b), "/")
 }
 
-func hostOf(raw string) string {
-	u, err := url.Parse(raw)
+// HostOf 从 API 地址提取 host（解析失败则原样返回），供菜单行尾显示复用。
+func HostOf(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
 	if err == nil && u.Host != "" {
 		return u.Host
 	}
-	return raw
+	return strings.TrimSpace(raw)
 }

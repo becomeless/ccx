@@ -202,3 +202,38 @@ function splitNonEmptyLines(s: string): string[] {
     .map((line) => line.trimEnd())
     .filter((line) => line.trim() !== '');
 }
+
+/**
+ * raw 模式下读一个按键确认（y/Y=是，其余任意键=否），无需回车，与菜单 raw 体验一致。
+ * 非 TTY 时回退到 cooked 读行。对应 Go 版 confirmKey。
+ */
+export async function confirmKey(prompt: string): Promise<boolean> {
+  const stdin = process.stdin;
+  const stdout = process.stdout;
+  if (!stdin.isTTY || !stdout.isTTY) {
+    const rl = createInterface({ input: stdin, output: stdout });
+    const ans = await new Promise<string>((res) => rl.question(`  ${prompt}`, res));
+    rl.close();
+    const t = ans.trim();
+    return t === 'y' || t === 'Y';
+  }
+  stdout.write(`  ${prompt}`);
+  emitKeypressEvents(stdin);
+  const wasRaw = stdin.isRaw ?? false;
+  stdin.setRawMode(true);
+  stdin.resume();
+  return new Promise<boolean>((resolve) => {
+    const onKey = (str: string | undefined, key: Key): void => {
+      stdin.off('keypress', onKey);
+      if (!wasRaw) stdin.setRawMode(false);
+      stdin.pause();
+      stdout.write('\n');
+      if (key?.ctrl && key.name === 'c') {
+        resolve(false);
+        return;
+      }
+      resolve((str ?? '').toLowerCase() === 'y');
+    };
+    stdin.on('keypress', onKey);
+  });
+}

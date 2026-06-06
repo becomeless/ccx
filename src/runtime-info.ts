@@ -23,11 +23,13 @@ function sameBase(a: string, b: string): boolean {
   return a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
 }
 
-function hostOf(raw: string): string {
+/** 从 API 地址提取 host（解析失败则原样返回），供菜单行尾显示复用。 */
+export function hostOf(raw: string): string {
+  const r = raw.trim();
   try {
-    const u = new URL(raw);
-    return u.host || raw;
+    const u = new URL(r);
+    return u.host || r;
   } catch {
-    return raw;
+    return r;
   }
 }

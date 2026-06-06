@@ -28,11 +28,7 @@ export async function checkProfile(p: Provider): Promise<CheckResult> {
       headers: { ...headers, 'anthropic-version': '2023-06-01' },
       signal: controller.signal,
     });
-    const code = String(resp.status);
-    if (resp.ok) return { ok: true, message: T('check.ok', code) };
-    if (resp.status === 401 || resp.status === 403) return { ok: false, message: T('check.auth', code) };
-    if (resp.status === 404) return { ok: false, message: T('check.notFound', code) };
-    return { ok: false, message: T('check.http', code) };
+    return classifyHttp(resp.status);
   } catch (e) {
     if ((e as Error).name === 'AbortError') return { ok: false, message: T('check.timeout') };
     const code = (e as NodeJS.ErrnoException).cause && typeof (e as NodeJS.ErrnoException).cause === 'object'
@@ -45,7 +41,16 @@ export async function checkProfile(p: Provider): Promise<CheckResult> {
   }
 }
 
-function authHeaders(m: Record<string, string>): Record<string, string> | undefined {
+/** HTTP 状态码 -> 结果分层（纯函数，便于测试）。 */
+export function classifyHttp(status: number): CheckResult {
+  const code = String(status);
+  if (status >= 200 && status < 300) return { ok: true, message: T('check.ok', code) };
+  if (status === 401 || status === 403) return { ok: false, message: T('check.auth', code) };
+  if (status === 404) return { ok: false, message: T('check.notFound', code) };
+  return { ok: false, message: T('check.http', code) };
+}
+
+export function authHeaders(m: Record<string, string>): Record<string, string> | undefined {
   const apiKey = (m.ANTHROPIC_API_KEY ?? '').trim();
   if (apiKey) return { 'x-api-key': apiKey };
   const token = (m.ANTHROPIC_AUTH_TOKEN ?? '').trim();

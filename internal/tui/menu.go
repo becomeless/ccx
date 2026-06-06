@@ -54,7 +54,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 				if p.Name == store.Current {
 					dft = i18n.T("menu.default")
 				}
-				labels[i] = display.Pad(i18n.ProviderDisplayName(p), 16) + display.Pad(dft, 8) + "[" + i18n.StateLabel(p) + "]" + i18n.NoteSuffix(p)
+				labels[i] = display.Pad(i18n.ProviderDisplayName(p), 16) + display.Pad(dft, 8) + "[" + i18n.StateLabel(p) + "]" + i18n.NoteSuffix(p) + hostSuffix(p)
 			}
 			items := append([]string{}, labels...)
 			return append(items, "", i18n.T("menu.newProfile"), i18n.T("menu.language"), updLabel, "", i18n.T("menu.exit"))
@@ -101,7 +101,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			switch shortcut {
 			case 'e':
 				old := p.Name
-				if EditForm(t, p, store, catalog) {
+				if EditForm(t, p, store, catalog, false) {
 					if store.Current == old {
 						store.Current = p.Name
 					}
@@ -120,7 +120,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			return
 		case sel == n+1: // 新增配置
 			prov := config.Provider{Env: map[string]string{}}
-			if EditForm(t, &prov, store, catalog) {
+			if EditForm(t, &prov, store, catalog, false) {
 				store.Providers = append(store.Providers, prov)
 				_ = config.Save(paths, store)
 				sel = len(store.Providers) - 1
@@ -141,7 +141,19 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			}
 			_ = config.Save(paths, store)
 		case sel < n:
-			actionMenu(t, paths, store, &store.Providers[sel], scope, catalog)
+			p := &store.Providers[sel]
+			if !config.IsOfficial(*p) && config.GetProviderState(*p).Key == config.KeyNone {
+				// #9：无密钥的第三方配置，Enter 直达编辑并聚焦密钥行（铺平首次成功路径）。
+				old := p.Name
+				if EditForm(t, p, store, catalog, true) {
+					if store.Current == old {
+						store.Current = p.Name
+					}
+					_ = config.Save(paths, store)
+				}
+			} else {
+				actionMenu(t, paths, store, p, scope, catalog)
+			}
 			if sel >= len(store.Providers) {
 				sel = max(0, len(store.Providers)-1) // 删除后夹取
 			}
@@ -187,7 +199,7 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 			}
 		case 3:
 			old := p.Name
-			if EditForm(t, p, store, catalog) {
+			if EditForm(t, p, store, catalog, false) {
 				if store.Current == old {
 					store.Current = p.Name // 改名/供应商时同步默认指向
 				}
@@ -197,8 +209,7 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 			if config.IsOfficial(*p) {
 				fmt.Printf("  %s\n", i18n.T("action.deleteOfficialWarn"))
 			}
-			ans, _ := t.ReadLine("  " + i18n.T("action.deleteConfirm", i18n.ProviderDisplayName(*p)))
-			if ans == "y" || ans == "Y" {
+			if confirmKey(t, i18n.T("action.deleteConfirm", i18n.ProviderDisplayName(*p))) {
 				removeProvider(store, p)
 				config.ReconcileCurrent(store)
 				_ = config.Save(paths, store)
@@ -261,6 +272,16 @@ func tuiLaunchSession(p config.Provider) {
 	_, _ = launch.LaunchSession(bin)
 }
 
+// hostSuffix 返回行尾的灰字 host（如 ` · api.deepseek.com`）；无 base（官方/未填）返回空。
+// 超宽时由 SelectMenu 的 ANSI-aware 截断从行尾裁掉，不会切坏颜色。
+func hostSuffix(p config.Provider) string {
+	base := strings.TrimSpace(config.GetProviderEnvMap(p)["ANTHROPIC_BASE_URL"])
+	if base == "" {
+		return ""
+	}
+	return Paint(" · "+runtimeinfo.HostOf(base), ColorDim)
+}
+
 func needsFirstRunHint(store *config.Store) bool {
 	hasThirdParty := false
 	for _, p := range store.Providers {
@@ -273,6 +294,20 @@ func needsFirstRunHint(store *config.Store) bool {
 		}
 	}
 	return hasThirdParty
+}
+
+// confirmKey 在 raw 模式下读一个按键确认（y/Y=是，其余任意键=否），与菜单 raw 体验一致、无需回车。
+// 进 raw 失败（非 TTY 等）时回退到 cooked 读行。
+func confirmKey(t *Terminal, prompt string) bool {
+	if err := t.MakeRaw(); err != nil {
+		ans, _ := t.ReadLine("  " + prompt) // 回退：cooked 读行
+		return ans == "y" || ans == "Y"
+	}
+	t.Write("  " + prompt)
+	k := t.ReadKey()
+	t.Restore()
+	t.Write("\n")
+	return k.Rune == 'y' || k.Rune == 'Y'
 }
 
 // removeProvider 从 store.Providers 删除指针 p 指向的元素。

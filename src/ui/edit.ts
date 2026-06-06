@@ -46,11 +46,15 @@ function fromProvider(p: Provider): WorkCopy {
   };
 }
 
-/** 编辑 `prov`（就地修改）；保存返回 true，放弃返回 false。 */
-export async function editForm(prov: Provider, store: Store, catalog: Preset[]): Promise<boolean> {
+/**
+ * 编辑 `prov`（就地修改）；保存返回 true，放弃返回 false。
+ * focusKey=true 时初始光标落在密钥行（#9：无 key 配置 Enter 直达填密钥的最短路径）。
+ */
+export async function editForm(prov: Provider, store: Store, catalog: Preset[], focusKey = false): Promise<boolean> {
   const W = fromProvider(prov);
   let showSecret = false;
-  let start = 0;
+  // rows 布局固定：provider,note,base,auth,key,…（密钥行索引为 4）。
+  let start = focusKey ? 4 : 0;
 
   for (;;) {
     const v = (x: string): string => (x === '' ? T('empty.paren') : x);

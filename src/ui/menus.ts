@@ -5,27 +5,19 @@
  * 动作菜单：本次启用 / 设为默认（绿条 toast）/ 编辑 / 删除（二次确认）/ 返回。
  * 编辑表单见 ui/edit.ts（含密钥明文切换）。
  */
-import { createInterface } from 'node:readline';
-
 import { launchSession } from '../actions.js';
 import { checkProfile } from '../check.js';
-import { getProviderState, isOfficial, reconcileCurrent, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
+import { getProviderEnvMap, getProviderState, isOfficial, reconcileCurrent, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
 import type { Preset } from '../config/types.js';
 import { setDefault, type DefaultScope } from '../env/default.js';
 import { getLang, providerDisplayName, setLang, T } from '../i18n/index.js';
-import { currentTerminalLine } from '../runtime-info.js';
+import { currentTerminalLine, hostOf } from '../runtime-info.js';
 import { banner as updateBanner, maybeRefresh, MODE_NOTIFY, upgradeCommand } from '../update/update.js';
+import { paint } from '../utils/ansi.js';
 import { padDisplay } from '../utils/display.js';
 import { editForm } from './edit.js';
 import { noteSuffix, stateLabel } from './format.js';
-import { selectMenu } from './select.js';
-
-async function readLine(prompt: string): Promise<string> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const ans = await new Promise<string>((res) => rl.question(prompt, res));
-  rl.close();
-  return ans.trim();
-}
+import { confirmKey, selectMenu } from './select.js';
 
 /** 一级 · 主菜单。布局：[profiles…] '' 新增 语言 '' 退出。 */
 export async function openMenu(
@@ -57,7 +49,7 @@ export async function openMenu(
     const buildItems = (): string[] => {
       const labels = store.providers.map((p) => {
         const dft = p.name === store.current ? T('menu.default') : '';
-        return `${padDisplay(providerDisplayName(p), 16)}${padDisplay(dft, 8)}[${stateLabel(p)}]${noteSuffix(p)}`;
+        return `${padDisplay(providerDisplayName(p), 16)}${padDisplay(dft, 8)}[${stateLabel(p)}]${noteSuffix(p)}${hostSuffix(p)}`;
       });
       return [...labels, '', T('menu.newProfile'), T('menu.language'), updLabel, '', T('menu.exit')];
     };
@@ -137,7 +129,18 @@ export async function openMenu(
       saveStore(paths, store);
     } else if (sel < n) {
       const target = store.providers[sel];
-      if (target) await actionMenu(paths, store, target, scope, catalog);
+      if (target) {
+        if (!isOfficial(target) && getProviderState(target).key === 'noKey') {
+          // #9：无密钥的第三方配置，Enter 直达编辑并聚焦密钥行（铺平首次成功路径）。
+          const old = target.name;
+          if (await editForm(target, store, catalog, true)) {
+            if (store.current === old) store.current = target.name;
+            saveStore(paths, store);
+          }
+        } else {
+          await actionMenu(paths, store, target, scope, catalog);
+        }
+      }
       if (sel >= store.providers.length) sel = Math.max(0, store.providers.length - 1); // 删除后夹取
     }
   }
@@ -187,8 +190,7 @@ async function actionMenu(
       }
     } else if (sel === 4) {
       if (isOfficial(p)) console.log(`  ${T('action.deleteOfficialWarn')}`);
-      const ans = await readLine(`  ${T('action.deleteConfirm', providerDisplayName(p))}`);
-      if (ans === 'y' || ans === 'Y') {
+      if (await confirmKey(T('action.deleteConfirm', providerDisplayName(p)))) {
         store.providers = store.providers.filter((x) => x !== p);
         reconcileCurrent(store);
         saveStore(paths, store);
@@ -217,6 +219,14 @@ function applyDefault(paths: StorePaths, store: Store, p: Provider, scope: Defau
   if (r.windows && !r.windows.ok) return { warn, toast: T('default.failed', r.windows.error ?? '') };
   if (r.unix?.unsupported) return { warn, toast: T('default.fishUnsupported') };
   return { warn, toast: T('default.done', name) };
+}
+
+// hostSuffix 返回行尾的灰字 host（如 ` · api.deepseek.com`）；无 base（官方/未填）返回空。
+// 超宽时由 selectMenu 的 ANSI-aware 截断从行尾裁掉，不会切坏颜色。
+function hostSuffix(p: Provider): string {
+  const base = (getProviderEnvMap(p).ANTHROPIC_BASE_URL ?? '').trim();
+  if (!base) return '';
+  return paint(` · ${hostOf(base)}`, 'dim');
 }
 
 function needsFirstRunHint(store: Store): boolean {

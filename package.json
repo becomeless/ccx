@@ -29,6 +29,7 @@
   "files": [
     "dist/**/*.js",
     "!dist/release/**",
+    "!dist/**/*.test.js",
     "!dist/**/*.exe",
     "!dist/**/*.zip",
     "!dist/**/*.md",
@@ -47,6 +48,7 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/check.test.ts src/runtime-info.test.ts",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

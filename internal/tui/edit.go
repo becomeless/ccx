@@ -43,10 +43,16 @@ func toggleLabel(show bool) string {
 
 // EditForm 编辑 prov（就地修改）；保存返回 true，放弃返回 false。对应 npm 版 editForm。
 // 密钥行默认掩码，「👁 显示/隐藏」仅切换本表单显示、不改数据、不持久化。
-func EditForm(t *Terminal, prov *config.Provider, store *config.Store, catalog []presets.Preset) bool {
+// focusKey=true 时初始光标落在密钥行（#9：无 key 配置 Enter 直达填密钥的最短路径）。
+func EditForm(t *Terminal, prov *config.Provider, store *config.Store, catalog []presets.Preset, focusKey bool) bool {
 	w := fromProvider(*prov)
 	showSecret := false
+	// rows 布局固定：provider,note,base,auth,key,…（密钥行索引为 4）。
+	const keyRowIndex = 4
 	start := 0
+	if focusKey {
+		start = keyRowIndex
+	}
 
 	v := func(x string) string {
 		if x == "" {

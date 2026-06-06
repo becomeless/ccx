@@ -23,19 +23,64 @@ func Pad(s string, width int) string {
 }
 
 // Truncate 按显示宽度截断到 max（防止超宽行在终端换行打乱原地重绘的行数计算）。
+// ANSI-aware：转义序列（\x1b[…m）不计入宽度且整段保留；若在着色中途截断，补 \x1b[0m 防颜色泄漏到后续行。
 func Truncate(s string, max int) string {
-	if runewidth.StringWidth(s) <= max {
+	if visibleWidth(s) <= max {
 		return s
 	}
-	w := 0
+	runes := []rune(s)
 	var b strings.Builder
-	for _, ch := range s {
-		cw := runewidth.RuneWidth(ch)
+	w := 0
+	colored := false
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == 0x1b {
+			end := csiEnd(runes, i)
+			for k := i; k <= end; k++ {
+				b.WriteRune(runes[k])
+			}
+			colored = true
+			i = end
+			continue
+		}
+		cw := runewidth.RuneWidth(runes[i])
 		if w+cw > max {
 			break
 		}
-		b.WriteRune(ch)
+		b.WriteRune(runes[i])
 		w += cw
 	}
+	if colored {
+		b.WriteString("\x1b[0m")
+	}
 	return b.String()
+}
+
+// visibleWidth 返回去除 ANSI 转义序列后的显示宽度。
+func visibleWidth(s string) int {
+	runes := []rune(s)
+	w := 0
+	for i := 0; i < len(runes); i++ {
+		if runes[i] == 0x1b {
+			i = csiEnd(runes, i)
+			continue
+		}
+		w += runewidth.RuneWidth(runes[i])
+	}
+	return w
+}
+
+// csiEnd 返回从 ESC（runes[i]==0x1b）起 CSI 序列的最后一个下标（含终止字节 0x40–0x7E）。
+// 形如 ESC [ 参数… 终止字节。非 CSI（ESC 后非 '['）或无终止字节时退化为能消费到的最远下标。
+func csiEnd(runes []rune, i int) int {
+	if i+1 >= len(runes) || runes[i+1] != '[' {
+		return i // 孤立 ESC，当单字符
+	}
+	j := i + 2 // 跳过 ESC 和引导符 '['
+	for j < len(runes) {
+		if runes[j] >= '@' && runes[j] <= '~' { // 终止字节
+			return j
+		}
+		j++
+	}
+	return len(runes) - 1
 }

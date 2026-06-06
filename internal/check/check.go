@@ -65,6 +65,11 @@ func Profile(p config.Provider) Result {
 		return Result{Message: i18n.T("check.network")}
 	}
 
+	return classifyHTTP(code)
+}
+
+// classifyHTTP 把 HTTP 状态码映射成本地化结果（纯函数，便于测试）。
+func classifyHTTP(code string) Result {
 	switch {
 	case strings.HasPrefix(code, "2"):
 		return Result{OK: true, Message: i18n.T("check.ok", code)}
