@@ -1,4 +1,4 @@
-<h1 align="center">ccx</h1>
+<h1 align="center">CC-X</h1>
 
 <p align="center">
   <strong>No config files · Process isolation · Parallel terminals · Zero deps</strong>
@@ -24,7 +24,7 @@
 > `xx` — one command to switch Claude Code between APIs. **Zero config risk.**
 
 Switching Claude Code between the official account and third-party APIs means juggling
-environment variables — or trusting a tool that rewrites your Claude config. ccx takes a
+environment variables — or trusting a tool that rewrites your Claude config. CC-X takes a
 different path: **switching happens purely at the environment-variable layer.** It never
 reads or writes any Claude Code config file. Your MCP, plugins, hooks — it won't touch them.
 
@@ -51,7 +51,7 @@ reads or writes any Claude Code config file. Your MCP, plugins, hooks — it won
 
 > Install [Claude Code](https://claude.ai/code) first (`claude` on PATH). **Open a new terminal** after installing.
 
-### Step 1 · Install ccx
+### Step 1 · Install CC-X
 
 **Windows (native, recommended)**
 
@@ -113,7 +113,7 @@ xx --help          # all options
 
 ## Two modes (the key concept)
 
-Which API Claude uses is decided by **environment variables**. ccx offers two scopes:
+Which API Claude uses is decided by **environment variables**. CC-X offers two scopes:
 
 | | Use this session (`-s`) | Set default |
 |---|---|---|
@@ -134,21 +134,21 @@ Environment variables are naturally process-isolated.
 
 ---
 
-## When ccx is NOT the right tool
+## When CC-X is NOT the right tool
 
 - You need to manage MCP, hooks, plugins, or multiple CLIs → use [cc-switch](https://github.com/farion1231/cc-switch)
-- You only use the official API, never switch → you don't need ccx
-- You want automatic config migration/backup → that's outside ccx's scope
+- You only use the official API, never switch → you don't need CC-X
+- You want automatic config migration/backup → that's outside CC-X's scope
 
-ccx cares more about boundaries than features. It does one thing: **switch APIs**.
+CC-X cares more about boundaries than features. It does one thing: **switch APIs**.
 
 ---
 
-## ccx vs cc-switch
+## CC-X vs cc-switch
 
-cc-switch is an excellent full-featured GUI; ccx takes the opposite, minimal approach.
+cc-switch is an excellent full-featured GUI; CC-X takes the opposite, minimal approach.
 
-| | ccx (`xx`) | cc-switch |
+| | CC-X (`xx`) | cc-switch |
 |---|---|---|
 | Form | Terminal command (lightweight) | Desktop GUI (full-featured) |
 | Scope | Just API switching | API + MCP + multiple CLIs + prompts… |
@@ -156,18 +156,18 @@ cc-switch is an excellent full-featured GUI; ccx takes the opposite, minimal app
 | Can lose MCP? | **Physically impossible** | Users have reported it |
 | Parallel terminals | **Native** (process isolation) | Global switch; sessions can clash |
 
-- → **ccx**: terminal natives, parallel-session runners, anyone burned by a config-wrecking switcher, "just switch the API" people
+- → **CC-X**: terminal natives, parallel-session runners, anyone burned by a config-wrecking switcher, "just switch the API" people
 - → **cc-switch**: GUI preference, all-in-one MCP + multi-CLI management
 
 ---
 
 ## Design philosophy
 
-> ccx cares more about boundaries than features.
+> CC-X cares more about boundaries than features.
 
-Claude Code already has its own config system, MCP ecosystem, and session state. ccx is not trying to become a control panel above it, or to copy user config into another database. It stands at one narrow point before Claude Code starts: prepare the 7 managed environment variables, then let Claude Code run.
+Claude Code already has its own config system, MCP ecosystem, and session state. CC-X is not trying to become a control panel above it, or to copy user config into another database. It stands at one narrow point before Claude Code starts: prepare the 7 managed environment variables, then let Claude Code run.
 
-That constraint is deliberate: no writes to Claude Code config files, no MCP management, no automatic migration, no resident background controller. If process environment variables can solve it, ccx avoids global files; if a choice matters, the user makes it explicitly. Doing less keeps the failure surface small.
+That constraint is deliberate: no writes to Claude Code config files, no MCP management, no automatic migration, no resident background controller. If process environment variables can solve it, CC-X avoids global files; if a choice matters, the user makes it explicitly. Doing less keeps the failure surface small.
 
 Issues / PRs are welcome, but the direction is clear: **make switching steadier, clearer, and less intrusive** before adding broader management power. Anything that writes a Claude Code config file will not be accepted.
 
@@ -187,7 +187,7 @@ Issues / PRs are welcome, but the direction is clear: **make switching steadier,
 | haiku → model | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | |
 | effort level | `CLAUDE_CODE_EFFORT_LEVEL` | `low`–`max`; `auto` = model default; empty = unset. Third parties may not honor it |
 
-> ccx **deliberately does not set** `ANTHROPIC_MODEL`. Use `/model opus|sonnet|haiku` in-session;
+> CC-X **deliberately does not set** `ANTHROPIC_MODEL`. Use `/model opus|sonnet|haiku` in-session;
 > the mapping table translates to the provider's real model name.
 
 ### Auth field: AUTH_TOKEN vs API_KEY
@@ -233,7 +233,7 @@ Issues / PRs are welcome, but the direction is clear: **make switching steadier,
   - Same semantics either way: **only affects new terminals**; switching to "Official" clears all managed vars
 - **No Claude Code config file is ever modified.**
 
-ccx only touches these 7 "managed" variables (and clears the ones a target profile doesn't use):
+CC-X only touches these 7 "managed" variables (and clears the ones a target profile doesn't use):
 `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `ANTHROPIC_DEFAULT_OPUS_MODEL`,
 `ANTHROPIC_DEFAULT_SONNET_MODEL`, `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `CLAUDE_CODE_EFFORT_LEVEL`.
 
