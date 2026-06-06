@@ -52,5 +52,9 @@ export function resolveLang(explicit?: Lang, storeLang?: Lang): Lang {
  * 其余是专有名词，原样显示 `name`。
  */
 export function providerDisplayName(p: Provider): string {
-  return isOfficial(p) ? T('provider.official') : p.name;
+  if (isOfficial(p)) return T('provider.official');
+  if (p.name === 'DeepSeek') return T('provider.deepseek');
+  if (p.name === '智谱GLM') return T('provider.zhipu');
+  if (p.name === '小米MiMo') return T('provider.mimo');
+  return p.name;
 }

@@ -29,16 +29,16 @@ different path: **switching happens purely at the environment-variable layer.** 
 reads or writes any Claude Code config file. Your MCP, plugins, hooks — it won't touch them.
 
 ```text
-  cc-x v0.4.6 · Claude Code API switcher     (default = used by bare `claude` in new terminals)
+  CC-X v0.4.6 · Claude Code API switcher     Default: Official
 
    ▶ Official          (default)[Logged in]
-     DeepSeek                   [Key set] — work
-     智谱GLM                    [No key]
-     小米MiMo                   [No key]
+     DeepSeek            [Key set] — work
+     Zhipu GLM           [No key]
+     Xiaomi MiMo         [No key]
 
-     New profile  ·  切换到中文  ·  Update check: off  ·  Exit
+     New profile  ·  Switch to 中文  ·  Update check: off  ·  Exit
 
-  ↑↓ move · Enter open · Shift+↑↓ reorder · q quit
+  ↑↓ move · Enter open · e edit · s session · d set-default · Shift+↑↓ reorder · q quit
 ```
 
 > **Two builds**: the **native Go build** is recommended — GitHub Releases provide a lightweight
@@ -125,8 +125,8 @@ Which API Claude uses is decided by **environment variables**. CC-X offers two s
 > 💡 **Analogy**: "Use this session" is a quick oil change — just for this trip. "Set default" is
 > refilling the tank — every new drive uses it from now on.
 
-**Parallel example**: open 4 terminals and run `xx Official -s`, `xx DeepSeek -s`, `xx 智谱GLM -s`,
-`xx 小米MiMo -s` — four Claudes running at once, each on its own API, zero interference.
+**Parallel example**: open 4 terminals and run `xx Official -s`, `xx DeepSeek -s`, `xx "Zhipu GLM" -s`,
+`xx "Xiaomi MiMo" -s` — four Claudes running at once, each on its own API, zero interference.
 
 **Why not a global config file?** `settings.json` is shared globally; editing it hits running
 sessions (classic symptom: another terminal suddenly says `cannot be parsed as a URL`).

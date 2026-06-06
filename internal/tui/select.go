@@ -22,7 +22,8 @@ type SelectOptions struct {
 	Colors       map[int]Color // 按索引上色
 	MovableCount int           // 顶部可排序区项数
 	OnMove       func(from, to int) []string
-	NoNumber     bool // 关闭行首序号（默认显示，与数字直选一致；编辑表单项多于 9 个时关闭）
+	OnKey        func(r rune, idx int) int // 单键快捷键：返回新索引并确认，-1=忽略
+	NoNumber     bool                      // 关闭行首序号（默认显示，与数字直选一致；编辑表单项多于 9 个时关闭）
 }
 
 // SelectMenu 自绘 ↑↓ 选择菜单，返回选中索引；取消（q/Esc/非法）返回 -1；Ctrl+C 恢复终端后以 130 退出。
@@ -65,10 +66,16 @@ func SelectMenu(t *Terminal, opts SelectOptions) int {
 			lines = append(lines, "  "+Paint(opts.Title, ColorCyan), "")
 		}
 		if opts.Notice != "" {
-			lines = append(lines, "  "+Paint(opts.Notice, ColorYellow), "")
+			for _, line := range splitNonEmptyLines(opts.Notice) {
+				lines = append(lines, "  "+Paint(line, ColorYellow))
+			}
+			lines = append(lines, "")
 		}
 		if opts.Status != "" {
-			lines = append(lines, "  "+Paint(opts.Status, ColorGreen), "")
+			for _, line := range splitNonEmptyLines(opts.Status) {
+				lines = append(lines, "  "+Paint(line, ColorGreen))
+			}
+			lines = append(lines, "")
 		}
 		for i, it := range items {
 			if it == "" {
@@ -157,6 +164,12 @@ func SelectMenu(t *Terminal, opts SelectOptions) int {
 				cleanup()
 				return -1
 			}
+			if opts.OnKey != nil {
+				if r := opts.OnKey(k.Rune, idx); r >= 0 {
+					cleanup()
+					return r
+				}
+			}
 		}
 	}
 }
@@ -175,9 +188,23 @@ func fallbackSelect(t *Terminal, opts SelectOptions) int {
 	if opts.Title != "" {
 		t.Write("  " + opts.Title + "\n\n")
 	}
+	if opts.Notice != "" {
+		for _, line := range splitNonEmptyLines(opts.Notice) {
+			t.Write("  " + line + "\n")
+		}
+		t.Write("\n")
+	}
+	if opts.Status != "" {
+		for _, line := range splitNonEmptyLines(opts.Status) {
+			t.Write("  " + line + "\n")
+		}
+		t.Write("\n")
+	}
+	indexMap := []int{}
 	for i, it := range opts.Items {
 		if it != "" {
-			t.Write("   " + strconv.Itoa(i+1) + ". " + it + "\n")
+			indexMap = append(indexMap, i)
+			t.Write("   " + strconv.Itoa(len(indexMap)) + ". " + it + "\n")
 		}
 	}
 	ans, ok := t.ReadLine("  " + i18n.T("menu.prompt"))
@@ -188,8 +215,19 @@ func fallbackSelect(t *Terminal, opts SelectOptions) int {
 	if s == "q" {
 		return -1
 	}
-	if n, err := strconv.Atoi(s); err == nil && n >= 1 && n <= len(opts.Items) && opts.Items[n-1] != "" {
-		return n - 1
+	if n, err := strconv.Atoi(s); err == nil && n >= 1 && n <= len(indexMap) {
+		return indexMap[n-1]
 	}
 	return -1
+}
+
+func splitNonEmptyLines(s string) []string {
+	raw := strings.Split(s, "\n")
+	out := make([]string, 0, len(raw))
+	for _, line := range raw {
+		if strings.TrimSpace(line) != "" {
+			out = append(out, line)
+		}
+	}
+	return out
 }

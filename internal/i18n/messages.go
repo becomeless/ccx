@@ -33,18 +33,27 @@ var messages = map[string]msg{
 	"state.apiKey": {zh: "密钥·API_KEY", en: "Key · API_KEY"},
 	"state.hasKey": {zh: "密钥已设", en: "Key set"},
 
-	// —— 供应商显示名（仅官方这种普通名词需要翻译；DeepSeek/GLM/MiMo 是专有名词不翻）——
+	// —— 当前终端环境（只读）——
+	"terminal.current":   {zh: "当前终端：{0}", en: "Current terminal: {0}"},
+	"terminal.official":  {zh: "未设置 / 官方登录态", en: "not set / official login"},
+	"terminal.matched":   {zh: "{0} → {1}", en: "{0} -> {1}"},
+	"terminal.unmatched": {zh: "{0}（未匹配配置）", en: "{0} (no matching profile)"},
+
+	// —— 供应商显示名（只影响显示，不改变 providers.json 里的 profile key）——
 	"provider.official": {zh: "官方", en: "Official"},
+	"provider.deepseek": {zh: "DeepSeek", en: "DeepSeek"},
+	"provider.zhipu":    {zh: "智谱GLM", en: "Zhipu GLM"},
+	"provider.mimo":     {zh: "小米MiMo", en: "Xiaomi MiMo"},
 
 	// —— 菜单通用 ——
 	"menu.prompt": {zh: "输入序号 (q 取消): ", en: "Enter number (q to cancel): "},
 	"menu.mainTitle": {
-		zh: "cc-x v{0} · Claude Code API 切换器     （默认 = 新终端裸敲 claude 用的）",
-		en: "cc-x v{0} · Claude Code API switcher     (default = used by bare `claude` in new terminals)",
+		zh: "CC-X v{0} · Claude Code API 切换器     默认：{1}",
+		en: "CC-X v{0} · Claude Code API switcher     Default: {1}",
 	},
 	"menu.mainHint": {
-		zh: "↑↓ 选择 · Enter 进入 · Shift+↑↓（或 PgUp/PgDn）排序 · q 退出",
-		en: "↑↓ move · Enter open · Shift+↑↓ (or PgUp/PgDn) reorder · q quit",
+		zh: "↑↓ 选择 · Enter 进入 · e 编辑 · s 启动 · d 设默认 · Shift+↑↓ 排序 · q 退出",
+		en: "↑↓ move · Enter open · e edit · s session · d set-default · Shift+↑↓ reorder · q quit",
 	},
 	"menu.newProfile": {zh: "新增配置", en: "New profile"},
 	"menu.exit":       {zh: "退出", en: "Exit"},
@@ -54,6 +63,7 @@ var messages = map[string]msg{
 	"menu.updateOff":       {zh: "更新检查：关闭", en: "Update check: off"},
 	"menu.updateNotify":    {zh: "更新检查：提醒", en: "Update check: notify"},
 	"menu.updateAvailable": {zh: "有新版本 {0} · 升级：{1}", en: "New version {0} · upgrade: {1}"},
+	"menu.firstRunHint":    {zh: "首次配置：① 选供应商 → ② 填密钥 → ③ 本次启用", en: "First setup: 1. pick a provider -> 2. paste key -> 3. use this session"},
 
 	// —— 动作菜单 ——
 	"action.titlePrefix": {zh: "配置：", en: "Profile: "},
@@ -65,13 +75,14 @@ var messages = map[string]msg{
 		zh: "设为默认    — 新终端裸敲 claude 默认用它（不影响运行中会话）",
 		en: "Set default — used by bare claude in new terminals (running sessions unaffected)",
 	},
+	"action.check":              {zh: "配置自检    — 只读探测 API 地址与密钥", en: "Check config — read-only probe for API URL and key"},
 	"action.edit":               {zh: "编辑", en: "Edit"},
 	"action.delete":             {zh: "删除", en: "Delete"},
 	"action.back":               {zh: "返回", en: "Back"},
 	"action.hint":               {zh: "↑↓ 选择 · Enter 确认 · q 返回", en: "↑↓ move · Enter select · q back"},
 	"action.deleteConfirm":      {zh: "确认删除 [{0}]? (y/N): ", en: "Delete [{0}]? (y/N): "},
 	"action.deleteOfficialWarn": {zh: "建议保留『官方』。", en: `Keeping "Official" is recommended.`},
-	"menu.language":             {zh: "切换到 English", en: "切换到中文"},
+	"menu.language":             {zh: "切换到 English", en: "Switch to 中文"},
 
 	// —— 通用占位 ——
 	"empty.paren": {zh: "(空)", en: "(empty)"},
@@ -122,6 +133,7 @@ var messages = map[string]msg{
 	// —— 错误 ——
 	"error.notFound":     {zh: "找不到配置：{0}", en: "Profile not found: {0}"},
 	"error.existing":     {zh: "现有：{0}", en: "Existing: {0}"},
+	"error.notFoundHint": {zh: "下一步：运行 `xx -l` 查看配置，或运行 `xx` 打开菜单。", en: "Next: run `xx -l` to list profiles, or `xx` to open the menu."},
 	"error.storeRead":    {zh: "配置文件读取失败：{0}", en: "Failed to read config file: {0}"},
 	"error.storeCorrupt": {zh: "配置文件解析失败（JSON 语法错误）：{0}", en: "Failed to parse config file (invalid JSON): {0}"},
 	"error.storeFormat":  {zh: "配置文件结构不正确（顶层须为对象、providers 须为数组且条目结构合法）：{0}", en: "Config file has invalid structure (top-level must be an object, providers must be an array with valid profile entries): {0}"},
@@ -129,6 +141,7 @@ var messages = map[string]msg{
 		zh: "为避免误删，未对它做任何改动。请修复后重试；或删除该文件以重新生成默认配置（会丢失已填的密钥）。",
 		en: "Left untouched to avoid data loss. Fix it and retry; or delete the file to regenerate defaults (loses any saved keys).",
 	},
+	"error.storeBackupHint": {zh: "修复前先备份：{0}", en: "Back it up first: {0}"},
 
 	// —— 本次启用（session）——
 	"session.noKey": {zh: "⚠ 配置 [{0}] 还没填密钥。", en: "⚠ Profile [{0}] has no key set."},
@@ -140,13 +153,33 @@ var messages = map[string]msg{
 		zh: "正在启动 Claude…（退出 Claude 后回到命令行）",
 		en: "Launching Claude… (returns here after Claude exits)",
 	},
-	"session.noClaude": {zh: "未找到 claude 命令，请确认它在 PATH 中。", en: "claude not found on PATH."},
+	"session.noClaude":     {zh: "未找到 claude 命令，请确认它在 PATH 中。", en: "claude not found on PATH."},
+	"session.noClaudeHint": {zh: "下一步：安装 Claude Code 后新开终端；npm 用户可运行 `npm install -g @anthropic-ai/claude-code`。", en: "Next: install Claude Code and open a new terminal; npm users can run `npm install -g @anthropic-ai/claude-code`."},
+
+	// —— 配置自检（只读网络探测）——
+	"check.noUrl":    {zh: "官方登录态 / 未设置 API 地址，无需自检。", en: "Official login / no API URL set; nothing to probe."},
+	"check.noKey":    {zh: "还没填密钥，无法自检。", en: "No key set; cannot probe."},
+	"check.ok":       {zh: "✓ 配置自检通过（HTTP {0}）", en: "✓ Config check passed (HTTP {0})"},
+	"check.auth":     {zh: "鉴权失败（HTTP {0}），检查密钥和认证字段。", en: "Authentication failed (HTTP {0}); check key and auth field."},
+	"check.dns":      {zh: "DNS 解析失败，检查 API 地址或网络。", en: "DNS lookup failed; check API URL or network."},
+	"check.timeout":  {zh: "连接超时，请稍后重试或检查网络。", en: "Connection timed out; retry later or check network."},
+	"check.notFound": {zh: "接口不存在（HTTP {0}），检查 API 地址是否缺少 /anthropic 等后缀。", en: "Endpoint not found (HTTP {0}); check whether the API URL is missing a suffix like /anthropic."},
+	"check.http":     {zh: "请求返回 HTTP {0}，检查 API 地址、密钥或账户状态。", en: "Request returned HTTP {0}; check API URL, key, or account state."},
+	"check.network":  {zh: "网络请求失败，检查网络或 curl 是否可用。", en: "Network request failed; check network or curl availability."},
 
 	// —— 设为默认（default）——
 	"default.writing": {zh: "正在写入用户环境变量…", en: "Writing user environment variables…"},
+	"default.noKey": {
+		zh: "⚠ {0} 还没填密钥；设为默认后，新终端的 claude 仍不可用。",
+		en: "⚠ {0} has no key; after setting it as default, claude in new terminals will still fail.",
+	},
 	"default.done": {
 		zh: "✓ 已设为默认：{0}  ·  新开终端裸敲 claude 生效（不影响运行中会话）",
 		en: "✓ Default set: {0}  ·  effective in newly opened terminals (running sessions unaffected)",
+	},
+	"default.hintSession": {
+		zh: "若只想本次使用：xx -s {0}",
+		en: "To use this session only: xx -s {0}",
 	},
 	"default.dryRun": {
 		zh: "（dry-run：--default-scope process，未改系统，仅更新存储）",

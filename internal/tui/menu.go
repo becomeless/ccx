@@ -3,7 +3,9 @@ package tui
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/becomeless/cc-x/internal/check"
 	"github.com/becomeless/cc-x/internal/config"
 	"github.com/becomeless/cc-x/internal/defaults"
 	"github.com/becomeless/cc-x/internal/display"
@@ -11,6 +13,7 @@ import (
 	"github.com/becomeless/cc-x/internal/i18n"
 	"github.com/becomeless/cc-x/internal/launch"
 	"github.com/becomeless/cc-x/internal/presets"
+	"github.com/becomeless/cc-x/internal/runtimeinfo"
 	"github.com/becomeless/cc-x/internal/update"
 )
 
@@ -18,17 +21,25 @@ import (
 func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope defaults.Scope, version string, catalog []presets.Preset) {
 	sel := 0
 	refreshed := false
+	flash := ""
+	warnFlash := ""
 	for {
 		n := len(store.Providers)
 		// 更新检查（仅 notify 模式）：首轮触发一次后台刷新；横幅永远读缓存（瞬时、不阻塞）。
-		notice := ""
+		notices := []string{runtimeinfo.CurrentTerminalLine(store)}
+		if needsFirstRunHint(store) {
+			notices = append(notices, i18n.T("menu.firstRunHint"))
+		}
+		if warnFlash != "" {
+			notices = append(notices, warnFlash)
+		}
 		if store.Update == update.ModeNotify {
 			if !refreshed {
 				update.MaybeRefresh(paths.Dir)
 				refreshed = true
 			}
 			if latest, ok := update.Banner(paths.Dir, version); ok {
-				notice = i18n.T("menu.updateAvailable", latest, update.UpgradeCommand())
+				notices = append(notices, i18n.T("menu.updateAvailable", latest, update.UpgradeCommand()))
 			}
 		}
 		updLabel := i18n.T("menu.updateOff")
@@ -57,17 +68,52 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			return buildItems()
 		}
 
+		defaultName := defaultDisplayName(store)
+		shortcut := rune(0)
 		sel = SelectMenu(t, SelectOptions{
-			Title:        i18n.T("menu.mainTitle", version),
-			Notice:       notice,
+			Title:        i18n.T("menu.mainTitle", version, defaultName),
+			Notice:       strings.Join(notices, "\n"),
+			Status:       flash,
 			Items:        buildItems(),
 			Colors:       map[int]Color{n + 1: ColorYellow},
 			Start:        sel,
 			MovableCount: n,
 			OnMove:       onMove,
-			Hint:         i18n.T("menu.mainHint"),
-			NoNumber:     true,
+			OnKey: func(r rune, idx int) int {
+				if idx >= n {
+					return -1
+				}
+				switch r {
+				case 'e', 's', 'd':
+					shortcut = r
+					return idx
+				}
+				return -1
+			},
+			Hint:     i18n.T("menu.mainHint"),
+			NoNumber: true,
 		})
+		flash = ""
+		warnFlash = ""
+
+		if shortcut != 0 && sel >= 0 && sel < n {
+			p := &store.Providers[sel]
+			switch shortcut {
+			case 'e':
+				old := p.Name
+				if EditForm(t, p, store, catalog) {
+					if store.Current == old {
+						store.Current = p.Name
+					}
+					_ = config.Save(paths, store)
+				}
+			case 's':
+				tuiLaunchSession(*p)
+			case 'd':
+				warnFlash, flash = applyDefault(paths, store, p, scope)
+			}
+			continue
+		}
 
 		switch {
 		case sel < 0 || sel == n+5: // 退出 / Esc / q
@@ -107,27 +153,39 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope, catalog []presets.Preset) {
 	sel := 0
 	flash := ""
+	warnFlash := "" // 黄字警告（如缺密钥），走 Notice 与绿色 Status 区分
 	for {
 		dft := ""
 		if p.Name == store.Current {
 			dft = i18n.T("menu.default")
 		}
 		title := i18n.T("action.titlePrefix") + i18n.ProviderDisplayName(*p) + dft + i18n.NoteSuffix(*p) + "    [" + i18n.StateLabel(*p) + "]"
-		items := []string{i18n.T("action.session"), i18n.T("action.setDefault"), i18n.T("action.edit"), i18n.T("action.delete"), i18n.T("action.back")}
+		items := []string{i18n.T("action.session"), i18n.T("action.setDefault"), i18n.T("action.check"), i18n.T("action.edit"), i18n.T("action.delete"), i18n.T("action.back")}
 
 		opts := SelectOptions{Title: title, Items: items, Start: sel, Hint: i18n.T("action.hint"), NoNumber: true}
+		if warnFlash != "" {
+			opts.Notice = warnFlash
+		}
 		if flash != "" {
 			opts.Status = flash
 		}
 		sel = SelectMenu(t, opts)
 		flash = ""
+		warnFlash = ""
 
 		switch sel {
 		case 0:
 			tuiLaunchSession(*p)
 		case 1:
-			flash = applyDefault(paths, store, p, scope)
+			warnFlash, flash = applyDefault(paths, store, p, scope)
 		case 2:
+			r := check.Profile(*p)
+			if r.OK {
+				flash = r.Message
+			} else {
+				warnFlash = r.Message
+			}
+		case 3:
 			old := p.Name
 			if EditForm(t, p, store, catalog) {
 				if store.Current == old {
@@ -135,7 +193,7 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 				}
 				_ = config.Save(paths, store)
 			}
-		case 3:
+		case 4:
 			if config.IsOfficial(*p) {
 				fmt.Printf("  %s\n", i18n.T("action.deleteOfficialWarn"))
 			}
@@ -152,20 +210,36 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 	}
 }
 
-// applyDefault 设为默认并返回一行 toast 文案。对应 npm 版 applyDefault。
-func applyDefault(paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope) string {
+func defaultDisplayName(store *config.Store) string {
+	if store.Current == "" {
+		return "—"
+	}
+	for _, p := range store.Providers {
+		if p.Name == store.Current {
+			return i18n.ProviderDisplayName(p)
+		}
+	}
+	return store.Current
+}
+
+// applyDefault 设为默认，返回 (warn, toast)：warn 为黄字警告（缺密钥），toast 为绿色结果。
+// 分开返回让调用方各自上色，避免警告被染成「成功」绿。对应 npm 版 applyDefault。
+func applyDefault(paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope) (warn, toast string) {
 	name := i18n.ProviderDisplayName(*p)
+	if config.GetProviderState(*p).Key == config.KeyNone {
+		warn = i18n.T("default.noKey", name)
+	}
 	r := defaults.SetDefault(paths, store, *p, scope)
-	if r.DryRun {
-		return i18n.T("default.done", name) + "  " + i18n.T("default.dryRun")
+	switch {
+	case r.DryRun:
+		return warn, i18n.T("default.done", name) + "  " + i18n.T("default.dryRun")
+	case r.WinOK != nil && !*r.WinOK:
+		return warn, i18n.T("default.failed", r.WinErr)
+	case r.Unix != nil && r.Unix.Unsupported:
+		return warn, i18n.T("default.fishUnsupported")
+	default:
+		return warn, i18n.T("default.done", name)
 	}
-	if r.WinOK != nil && !*r.WinOK {
-		return i18n.T("default.failed", r.WinErr)
-	}
-	if r.Unix != nil && r.Unix.Unsupported {
-		return i18n.T("default.fishUnsupported")
-	}
-	return i18n.T("default.done", name)
 }
 
 // tuiLaunchSession 菜单内「本次启用」：提示 + banner + 套环境启动 claude，退出后回到动作菜单。
@@ -180,10 +254,25 @@ func tuiLaunchSession(p config.Provider) {
 	bin, ok := launch.ResolveClaude()
 	if !ok {
 		fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("session.noClaude"))
+		fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("session.noClaudeHint"))
 		return
 	}
 	env.ApplyManaged(p)
 	_, _ = launch.LaunchSession(bin)
+}
+
+func needsFirstRunHint(store *config.Store) bool {
+	hasThirdParty := false
+	for _, p := range store.Providers {
+		if config.IsOfficial(p) {
+			continue
+		}
+		hasThirdParty = true
+		if config.GetProviderState(p).Key != config.KeyNone {
+			return false
+		}
+	}
+	return hasThirdParty
 }
 
 // removeProvider 从 store.Providers 删除指针 p 指向的元素。

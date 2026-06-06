@@ -22,6 +22,7 @@ export function launchSession(p: Provider): void {
   const res = sessionLaunch(p);
   if (res.claudeMissing) {
     console.error(`  ${T('session.noClaude')}`);
+    console.error(`  ${T('session.noClaudeHint')}`);
     process.exitCode = 1;
     return;
   }

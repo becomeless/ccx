@@ -71,6 +71,14 @@ func ProviderDisplayName(p config.Provider) string {
 	if config.IsOfficial(p) {
 		return T("provider.official")
 	}
+	switch p.Name {
+	case "DeepSeek":
+		return T("provider.deepseek")
+	case "智谱GLM":
+		return T("provider.zhipu")
+	case "小米MiMo":
+		return T("provider.mimo")
+	}
 	return p.Name
 }
 

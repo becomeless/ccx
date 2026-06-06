@@ -9,11 +9,12 @@
 import { createRequire } from 'node:module';
 import { Command, Option } from 'commander';
 
-import { launchSession, warnIfNoKey } from './actions.js';
-import { loadStore, peekStoreLang, resolveStorePaths, StoreError, type Provider, type Store, type StorePaths } from './config/store.js';
+import { launchSession } from './actions.js';
+import { getProviderState, loadStore, peekStoreLang, resolveStorePaths, StoreError, type Provider, type Store, type StorePaths } from './config/store.js';
 import { loadPresets } from './config/presets.js';
 import { setDefault } from './env/default.js';
 import { providerDisplayName, resolveLang, setLang, T } from './i18n/index.js';
+import { currentTerminalLine } from './runtime-info.js';
 import { noteSuffix, stateLabel } from './ui/format.js';
 import { openMenu } from './ui/menus.js';
 import { padDisplay } from './utils/display.js';
@@ -92,6 +93,9 @@ async function dispatch(name: string | undefined, opts: GlobalOpts): Promise<voi
       const head = e.kind === 'read' ? 'error.storeRead' : e.kind === 'format' ? 'error.storeFormat' : 'error.storeCorrupt';
       console.error(`  ${T(head, e.file)}`);
       console.error(`  ${T('error.storeCorruptHint')}`);
+      if (e.kind === 'parse' || e.kind === 'format') {
+        console.error(`  ${T('error.storeBackupHint', backupCommand(e.file))}`);
+      }
       process.exitCode = 1;
       return;
     }
@@ -105,10 +109,11 @@ async function dispatch(name: string | undefined, opts: GlobalOpts): Promise<voi
     return;
   }
   if (name) {
-    const target = store.providers.find((p) => p.name === name);
+    const target = findProviderForCli(store, name);
     if (!target) {
       console.error(`  ${T('error.notFound', name)}`);
-      console.error(`  ${T('error.existing', store.providers.map((p) => p.name).join(', '))}`);
+      console.error(`  ${T('error.existing', store.providers.map((p) => providerDisplayName(p)).join(', '))}`);
+      console.error(`  ${T('error.notFoundHint')}`);
       process.exitCode = 1;
       return;
     }
@@ -119,11 +124,16 @@ async function dispatch(name: string | undefined, opts: GlobalOpts): Promise<voi
   await openMenu(paths, store, opts.defaultScope, pkg.version, loadPresets(opts.storeDir));
 }
 
+function findProviderForCli(store: Store, name: string): Provider | undefined {
+  return store.providers.find((p) => p.name === name) ?? store.providers.find((p) => providerDisplayName(p) === name);
+}
+
 /** `--list`：列出所有配置及状态。官方档显示名走 i18n（评审①），其余原样。 */
 function runList(store: Store): void {
   const cur = store.providers.find((p) => p.name === store.current);
   console.log('');
   console.log(`  ${T('list.default', cur ? providerDisplayName(cur) : store.current)}`);
+  console.log(`  ${currentTerminalLine(store)}`);
   for (const p of store.providers) {
     const mark = p.name === store.current ? '▶' : ' ';
     console.log(`   ${mark} ${padDisplay(providerDisplayName(p), 18)}[${stateLabel(p)}]${noteSuffix(p)}`);
@@ -133,13 +143,14 @@ function runList(store: Store): void {
 
 /** 设为默认：写用户环境变量（或 dry-run）+ 更新 store.current。 */
 function runDefault(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): void {
-  warnIfNoKey(p);
+  warnIfNoKeyForDefault(p);
   const name = providerDisplayName(p);
   const r = setDefault(paths, store, p, scope);
 
   if (r.dryRun) {
     console.log(`  ${T('default.done', name)}`);
     console.log(`  ${T('default.dryRun')}`);
+    console.log(`  ${T('default.hintSession', quoteArg(p.name))}`);
     return;
   }
   if (r.windows && !r.windows.ok) {
@@ -153,6 +164,33 @@ function runDefault(paths: StorePaths, store: Store, p: Provider, scope: Default
   }
   console.log(`  ${T('default.done', name)}`);
   if (r.unix) console.log(`  ${T('default.unixWrote', r.unix.file)}`);
+  console.log(`  ${T('default.hintSession', quoteArg(p.name))}`);
+}
+
+function warnIfNoKeyForDefault(p: Provider): void {
+  if (getProviderState(p).key === 'noKey') {
+    console.log(`  ${T('default.noKey', providerDisplayName(p))}`);
+  }
+}
+
+function backupCommand(file: string): string {
+  const dst = `${file}.bak`;
+  if (process.platform === 'win32') {
+    return `Copy-Item -LiteralPath ${psQuote(file)} -Destination ${psQuote(dst)}`;
+  }
+  return `cp ${shQuote(file)} ${shQuote(dst)}`;
+}
+
+function psQuote(s: string): string {
+  return `'${s.replaceAll("'", "''")}'`;
+}
+
+function shQuote(s: string): string {
+  return `'${s.replaceAll("'", `'"'"'`)}'`;
+}
+
+function quoteArg(s: string): string {
+  return `"${s.replaceAll('"', '\\"')}"`;
 }
 
 main();

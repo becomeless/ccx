@@ -8,10 +8,12 @@
 import { createInterface } from 'node:readline';
 
 import { launchSession } from '../actions.js';
-import { isOfficial, reconcileCurrent, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
+import { checkProfile } from '../check.js';
+import { getProviderState, isOfficial, reconcileCurrent, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
 import type { Preset } from '../config/types.js';
 import { setDefault, type DefaultScope } from '../env/default.js';
 import { getLang, providerDisplayName, setLang, T } from '../i18n/index.js';
+import { currentTerminalLine } from '../runtime-info.js';
 import { banner as updateBanner, maybeRefresh, MODE_NOTIFY, upgradeCommand } from '../update/update.js';
 import { padDisplay } from '../utils/display.js';
 import { editForm } from './edit.js';
@@ -35,17 +37,21 @@ export async function openMenu(
 ): Promise<void> {
   let sel = 0;
   let refreshed = false;
+  let flash: string | undefined;
+  let warnFlash: string | undefined;
   for (;;) {
     const n = store.providers.length;
     // 更新检查（仅 notify 模式）：首轮触发一次后台刷新；横幅永远读缓存（瞬时、不阻塞）。
-    let notice: string | undefined;
+    const notices = [currentTerminalLine(store)];
+    if (needsFirstRunHint(store)) notices.push(T('menu.firstRunHint'));
+    if (warnFlash) notices.push(warnFlash);
     if (store.update === MODE_NOTIFY) {
       if (!refreshed) {
         maybeRefresh(paths.dir);
         refreshed = true;
       }
       const latest = updateBanner(paths.dir, version);
-      if (latest) notice = T('menu.updateAvailable', latest, upgradeCommand());
+      if (latest) notices.push(T('menu.updateAvailable', latest, upgradeCommand()));
     }
     const updLabel = store.update === MODE_NOTIFY ? T('menu.updateNotify') : T('menu.updateOff');
     const buildItems = (): string[] => {
@@ -67,17 +73,47 @@ export async function openMenu(
       return buildItems();
     };
 
+    const defaultName = defaultDisplayName(store);
+    let shortcut = '';
     sel = await selectMenu({
-      title: T('menu.mainTitle', version),
-      ...(notice ? { notice } : {}),
+      title: T('menu.mainTitle', version, defaultName),
+      notice: notices.join('\n'),
+      ...(flash ? { status: flash } : {}),
       items: buildItems(),
       colors: { [n + 1]: 'yellow' },
       start: sel,
       movableCount: n,
       onMove,
+      onKey: (r: string, idx: number): number => {
+        if (idx >= n) return -1;
+        if (r === 'e' || r === 's' || r === 'd') {
+          shortcut = r;
+          return idx;
+        }
+        return -1;
+      },
       hint: T('menu.mainHint'),
       noNumber: true,
     });
+    flash = undefined;
+    warnFlash = undefined;
+
+    if (shortcut && sel >= 0 && sel < n) {
+      const target = store.providers[sel];
+      if (!target) continue;
+      if (shortcut === 'e') {
+        const old = target.name;
+        if (await editForm(target, store, catalog)) {
+          if (store.current === old) store.current = target.name;
+          saveStore(paths, store);
+        }
+      } else if (shortcut === 's') {
+        launchSession(target);
+      } else if (shortcut === 'd') {
+        ({ warn: warnFlash, toast: flash } = applyDefault(paths, store, target, scope));
+      }
+      continue;
+    }
 
     if (sel < 0 || sel === n + 5) return; // 退出 / Esc / q
     if (sel === n + 1) {
@@ -117,25 +153,39 @@ async function actionMenu(
 ): Promise<void> {
   let sel = 0;
   let flash: string | undefined;
+  let warnFlash: string | undefined; // 黄字警告（如缺密钥），走 notice 与绿色 status 区分
   for (;;) {
     const dft = p.name === store.current ? T('menu.default') : '';
     const title = `${T('action.titlePrefix')}${providerDisplayName(p)}${dft}${noteSuffix(p)}    [${stateLabel(p)}]`;
-    const items = [T('action.session'), T('action.setDefault'), T('action.edit'), T('action.delete'), T('action.back')];
+    const items = [T('action.session'), T('action.setDefault'), T('action.check'), T('action.edit'), T('action.delete'), T('action.back')];
 
-    sel = await selectMenu({ title, items, start: sel, ...(flash ? { status: flash } : {}), hint: T('action.hint'), noNumber: true });
+    sel = await selectMenu({
+      title,
+      items,
+      start: sel,
+      ...(warnFlash ? { notice: warnFlash } : {}),
+      ...(flash ? { status: flash } : {}),
+      hint: T('action.hint'),
+      noNumber: true,
+    });
     flash = undefined;
+    warnFlash = undefined;
 
     if (sel === 0) {
       launchSession(p);
     } else if (sel === 1) {
-      flash = applyDefault(paths, store, p, scope);
+      ({ warn: warnFlash, toast: flash } = applyDefault(paths, store, p, scope));
     } else if (sel === 2) {
+      const result = await checkProfile(p);
+      if (result.ok) flash = result.message;
+      else warnFlash = result.message;
+    } else if (sel === 3) {
       const old = p.name;
       if (await editForm(p, store, catalog)) {
         if (store.current === old) store.current = p.name; // 改了名/供应商时同步默认指向
         saveStore(paths, store);
       }
-    } else if (sel === 3) {
+    } else if (sel === 4) {
       if (isOfficial(p)) console.log(`  ${T('action.deleteOfficialWarn')}`);
       const ans = await readLine(`  ${T('action.deleteConfirm', providerDisplayName(p))}`);
       if (ans === 'y' || ans === 'Y') {
@@ -150,12 +200,31 @@ async function actionMenu(
   }
 }
 
-/** 设为默认并返回一行 toast 文案。 */
-function applyDefault(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): string {
+function defaultDisplayName(store: Store): string {
+  if (!store.current) return '—';
+  return providerDisplayName(store.providers.find((p) => p.name === store.current) ?? { name: store.current, env: {} });
+}
+
+/**
+ * 设为默认，返回 { warn, toast }：warn 为黄字警告（缺密钥），toast 为绿色结果。
+ * 分开返回让调用方各自上色，避免警告被染成「成功」绿。
+ */
+function applyDefault(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): { warn: string; toast: string } {
   const name = providerDisplayName(p);
+  const warn = getProviderState(p).key === 'noKey' ? T('default.noKey', name) : '';
   const r = setDefault(paths, store, p, scope);
-  if (r.dryRun) return `${T('default.done', name)}  ${T('default.dryRun')}`;
-  if (r.windows && !r.windows.ok) return T('default.failed', r.windows.error ?? '');
-  if (r.unix?.unsupported) return T('default.fishUnsupported');
-  return T('default.done', name);
+  if (r.dryRun) return { warn, toast: `${T('default.done', name)}  ${T('default.dryRun')}` };
+  if (r.windows && !r.windows.ok) return { warn, toast: T('default.failed', r.windows.error ?? '') };
+  if (r.unix?.unsupported) return { warn, toast: T('default.fishUnsupported') };
+  return { warn, toast: T('default.done', name) };
+}
+
+function needsFirstRunHint(store: Store): boolean {
+  let hasThirdParty = false;
+  for (const p of store.providers) {
+    if (isOfficial(p)) continue;
+    hasThirdParty = true;
+    if (getProviderState(p).key !== 'noKey') return false;
+  }
+  return hasThirdParty;
 }

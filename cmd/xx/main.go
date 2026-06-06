@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/becomeless/cc-x/internal/config"
@@ -16,6 +17,7 @@ import (
 	"github.com/becomeless/cc-x/internal/i18n"
 	"github.com/becomeless/cc-x/internal/launch"
 	"github.com/becomeless/cc-x/internal/presets"
+	"github.com/becomeless/cc-x/internal/runtimeinfo"
 	"github.com/becomeless/cc-x/internal/tui"
 )
 
@@ -62,7 +64,7 @@ func parseArgs(argv []string) (options, error) {
 		a := argv[i]
 		takeVal := func(flag string) (string, error) {
 			if i+1 >= len(argv) {
-				return "", fmt.Errorf("%s 需要一个值", flag)
+				return "", fmt.Errorf("%s requires a value", flag)
 			}
 			i++
 			return argv[i], nil
@@ -101,7 +103,7 @@ func parseArgs(argv []string) (options, error) {
 		case strings.HasPrefix(a, "--lang="):
 			o.lang = strings.TrimPrefix(a, "--lang=")
 		case strings.HasPrefix(a, "-") && a != "-":
-			return o, fmt.Errorf("未知选项: %s", a)
+			return o, fmt.Errorf("unknown option: %s", a)
 		default:
 			if o.name == "" {
 				o.name = a
@@ -109,10 +111,10 @@ func parseArgs(argv []string) (options, error) {
 		}
 	}
 	if o.defaultScope != "user" && o.defaultScope != "process" {
-		return o, fmt.Errorf("--default-scope 只能是 user 或 process")
+		return o, fmt.Errorf("--default-scope must be user or process")
 	}
 	if o.lang != "" && o.lang != "zh" && o.lang != "en" {
-		return o, fmt.Errorf("--lang 只能是 zh 或 en")
+		return o, fmt.Errorf("--lang must be zh or en")
 	}
 	return o, nil
 }
@@ -134,6 +136,9 @@ func dispatch(o options) int {
 			}
 			fmt.Fprintf(os.Stderr, "  %s\n", i18n.T(head, se.File))
 			fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("error.storeCorruptHint"))
+			if se.Kind == config.ErrParse || se.Kind == config.ErrFormat {
+				fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("error.storeBackupHint", backupCommand(se.File)))
+			}
 			return 1
 		}
 		fmt.Fprintf(os.Stderr, "  %s\n", err.Error())
@@ -147,14 +152,15 @@ func dispatch(o options) int {
 		return 0
 	}
 	if o.name != "" {
-		p := config.FindProvider(store, o.name)
+		p := findProviderForCLI(store, o.name)
 		if p == nil {
 			names := make([]string, len(store.Providers))
 			for i, pp := range store.Providers {
-				names[i] = pp.Name
+				names[i] = i18n.ProviderDisplayName(pp)
 			}
 			fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("error.notFound", o.name))
 			fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("error.existing", strings.Join(names, ", ")))
+			fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("error.notFoundHint"))
 			return 1
 		}
 		if o.session {
@@ -167,6 +173,18 @@ func dispatch(o options) int {
 	return 0
 }
 
+func findProviderForCLI(store *config.Store, name string) *config.Provider {
+	if p := config.FindProvider(store, name); p != nil {
+		return p
+	}
+	for i := range store.Providers {
+		if i18n.ProviderDisplayName(store.Providers[i]) == name {
+			return &store.Providers[i]
+		}
+	}
+	return nil
+}
+
 // warnIfNoKey：非官方且未填密钥时给黄字提示（到 stderr，对齐 npm 版）。
 func warnIfNoKey(p config.Provider) {
 	if config.GetProviderState(p).Key == config.KeyNone {
@@ -174,15 +192,22 @@ func warnIfNoKey(p config.Provider) {
 	}
 }
 
+func warnIfNoKeyForDefault(p config.Provider) {
+	if config.GetProviderState(p).Key == config.KeyNone {
+		fmt.Printf("  %s\n", i18n.T("default.noKey", i18n.ProviderDisplayName(p)))
+	}
+}
+
 // runDefault：设为默认（写用户环境变量或 dry-run）+ 更新 store.current。逐行对齐 npm 版 runDefault。
 func runDefault(paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope) int {
-	warnIfNoKey(*p)
+	warnIfNoKeyForDefault(*p)
 	name := i18n.ProviderDisplayName(*p)
 	r := defaults.SetDefault(paths, store, *p, scope)
 
 	if r.DryRun {
 		fmt.Printf("  %s\n", i18n.T("default.done", name))
 		fmt.Printf("  %s\n", i18n.T("default.dryRun"))
+		fmt.Printf("  %s\n", i18n.T("default.hintSession", quoteArg(p.Name)))
 		return 0
 	}
 	if r.WinOK != nil && !*r.WinOK {
@@ -197,6 +222,7 @@ func runDefault(paths config.StorePaths, store *config.Store, p *config.Provider
 	if r.Unix != nil {
 		fmt.Printf("  %s\n", i18n.T("default.unixWrote", r.Unix.File))
 	}
+	fmt.Printf("  %s\n", i18n.T("default.hintSession", quoteArg(p.Name)))
 	return 0
 }
 
@@ -210,6 +236,7 @@ func launchSession(p config.Provider) int {
 	bin, ok := launch.ResolveClaude()
 	if !ok {
 		fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("session.noClaude"))
+		fmt.Fprintf(os.Stderr, "  %s\n", i18n.T("session.noClaudeHint"))
 		return 1
 	}
 	env.ApplyManaged(p)
@@ -236,6 +263,7 @@ func runList(store *config.Store) {
 		curName = i18n.ProviderDisplayName(*cur)
 	}
 	fmt.Printf("  %s\n", i18n.T("list.default", curName))
+	fmt.Printf("  %s\n", runtimeinfo.CurrentTerminalLine(store))
 	for _, p := range store.Providers {
 		mark := " "
 		if p.Name == store.Current {
@@ -262,4 +290,24 @@ func printHelp() {
 	fmt.Printf("      --lang <zh|en>         %s\n", i18n.T("cli.opt.lang"))
 	fmt.Printf("  -v, --version              %s\n", i18n.T("cli.opt.version"))
 	fmt.Printf("  -h, --help                 %s\n", i18n.T("cli.opt.help"))
+}
+
+func backupCommand(file string) string {
+	dst := file + ".bak"
+	if runtime.GOOS == "windows" {
+		return fmt.Sprintf("Copy-Item -LiteralPath %s -Destination %s", psQuote(file), psQuote(dst))
+	}
+	return fmt.Sprintf("cp %s %s", shQuote(file), shQuote(dst))
+}
+
+func psQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+func shQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
+}
+
+func quoteArg(s string) string {
+	return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
 }

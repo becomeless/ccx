@@ -31,6 +31,8 @@ export interface SelectOptions {
   movableCount?: number;
   /** 排序回调：交换数据并返回重建后的菜单项标签数组。 */
   onMove?: (from: number, to: number) => string[];
+  /** 单键快捷键：返回新索引并确认，-1=忽略。 */
+  onKey?: (r: string, idx: number) => number;
   /** 关闭行首序号（默认显示，与数字直选一致；编辑表单项多于 9 个时关闭）。 */
   noNumber?: boolean;
 }
@@ -67,10 +69,12 @@ export async function selectMenu(opts: SelectOptions): Promise<number> {
       lines.push(`  ${paint(opts.title, 'cyan')}`, '');
     }
     if (opts.notice) {
-      lines.push(`  ${paint(opts.notice, 'yellow')}`, '');
+      for (const line of splitNonEmptyLines(opts.notice)) lines.push(`  ${paint(line, 'yellow')}`);
+      lines.push('');
     }
     if (opts.status) {
-      lines.push(`  ${paint(opts.status, 'green')}`, '');
+      for (const line of splitNonEmptyLines(opts.status)) lines.push(`  ${paint(line, 'green')}`);
+      lines.push('');
     }
     for (let i = 0; i < items.length; i++) {
       const it = items[i] ?? '';
@@ -146,7 +150,14 @@ export async function selectMenu(opts: SelectOptions): Promise<number> {
         if (n >= 1 && n <= items.length && items[n - 1] !== '') cleanup(n - 1);
         return;
       }
-      if (ch === 'q') cleanup(-1);
+      if (ch === 'q') {
+        cleanup(-1);
+        return;
+      }
+      if (opts.onKey) {
+        const r = opts.onKey(ch, idx);
+        if (r >= 0) cleanup(r);
+      }
     };
     stdin.on('keypress', onKey);
     render();
@@ -158,8 +169,20 @@ async function fallbackSelect(opts: SelectOptions, items: string[]): Promise<num
   const stdout = process.stdout;
   stdout.write('\n');
   if (opts.title) stdout.write(`  ${opts.title}\n\n`);
+  if (opts.notice) {
+    splitNonEmptyLines(opts.notice).forEach((line) => stdout.write(`  ${line}\n`));
+    stdout.write('\n');
+  }
+  if (opts.status) {
+    splitNonEmptyLines(opts.status).forEach((line) => stdout.write(`  ${line}\n`));
+    stdout.write('\n');
+  }
+  const indexMap: number[] = [];
   items.forEach((it, i) => {
-    if (it !== '') stdout.write(`   ${i + 1}. ${it}\n`);
+    if (it !== '') {
+      indexMap.push(i);
+      stdout.write(`   ${indexMap.length}. ${it}\n`);
+    }
   });
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const ans = await new Promise<string>((res) => rl.question(`  ${T('menu.prompt')}`, res));
@@ -168,7 +191,14 @@ async function fallbackSelect(opts: SelectOptions, items: string[]): Promise<num
   if (t === 'q') return -1;
   if (/^\d+$/.test(t)) {
     const n = Number.parseInt(t, 10);
-    if (n >= 1 && n <= items.length && items[n - 1] !== '') return n - 1;
+    if (n >= 1 && n <= indexMap.length) return indexMap[n - 1] ?? -1;
   }
   return -1;
+}
+
+function splitNonEmptyLines(s: string): string[] {
+  return s
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== '');
 }
