@@ -89,6 +89,19 @@ xx DeepSeek -s     # Use this session, launch Claude now
 xx DeepSeek        # Set as default for new terminals
 ```
 
+### Updating
+
+Updating just means **re-running the install command** — the installer downloads the latest
+release and overwrites the old binary in place, no uninstall needed. **Open a new terminal**
+afterward; `xx --version` should show the new version.
+
+- **Windows**: `irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex`
+- **macOS / Linux**: `curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh`
+- **npm**: `npm i -g @cc-x/cc-x@latest`
+
+> With the menu's "Update check" set to "notify", CC-X shows a banner at the top of the menu
+> when a new version is out, with the matching upgrade command for your platform.
+
 ---
 
 ## 60-second quick start

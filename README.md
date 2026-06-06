@@ -87,6 +87,16 @@ xx DeepSeek -s     # 本次启用，立即启动 Claude
 xx DeepSeek        # 设为默认，以后新终端自动生效
 ```
 
+### 更新到新版本
+
+更新就是**重新跑一遍安装命令**——安装器会下载最新版覆盖旧的，不用先卸载。跑完**新开一个终端**，`xx --version` 即为新版本。
+
+- **Windows**：`irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex`
+- **macOS / Linux**：`curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh`
+- **npm**：`npm i -g @cc-x/cc-x@latest`
+
+> 把菜单里的「更新检查」开到「提醒」后，有新版时 CC-X 会在菜单顶部横幅提示，并直接给出上面对应平台的升级命令。
+
 ---
 
 ## 60 秒上手
