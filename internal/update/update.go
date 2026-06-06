@@ -3,12 +3,16 @@
 //
 // 设计：显示永远读缓存（瞬时、不阻塞），过期时后台异步刷新——所以新版本「下次打开」才提示，
 // 与用户预期一致。离线/失败一律静默。只写工具自己的 ~/.cc-mini/，不碰任何 Claude Code 配置（铁律）。
+//
+// 网络请求通过 curl 子进程完成（exec.CommandContext），避免引入 net/http 拉入整个 TLS/加密栈。
+// curl 在所有目标平台均可用：Windows 10 1803+ 内置 curl.exe；macOS/Linux 系统自带。
 package update
 
 import (
+	"context"
 	"encoding/json"
-	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -24,12 +28,12 @@ const (
 )
 
 const (
-	latestURL   = "https://github.com/becomeless/cc-x/releases/latest"
-	cacheMaxAge = 24 * time.Hour
-	httpTimeout = 2 * time.Second
-	cacheFile   = "update-check.json"
-	winUpgrade  = "irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex"
-	unixUpgrade = "curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh"
+	latestURL    = "https://github.com/becomeless/cc-x/releases/latest"
+	cacheMaxAge  = 24 * time.Hour
+	fetchTimeout = 5 * time.Second
+	cacheFile    = "update-check.json"
+	winUpgrade   = "irm https://github.com/becomeless/cc-x/releases/latest/download/install.ps1 | iex"
+	unixUpgrade  = "curl -fsSL https://github.com/becomeless/cc-x/releases/latest/download/install.sh | sh"
 )
 
 type cache struct {
@@ -105,24 +109,22 @@ func writeCache(storeDir string, c cache) {
 	_ = os.Rename(tmp, cachePath(storeDir))
 }
 
-// fetchLatest 用 releases/latest 的 302 重定向抠最新版本号；禁止跟随重定向 = 不走 GitHub API。
+// fetchLatest 用 curl 子进程获取 releases/latest 的 302 Location 并抠出版本号。
+// --max-redirs 0 禁止跟随重定向；-w "%{redirect_url}" 直接输出目标 URL，无需解析响应头。
+// curl 不可用或网络失败均静默返回 ""。
 func fetchLatest() string {
-	client := &http.Client{
-		Timeout: httpTimeout,
-		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return http.ErrUseLastResponse // 不跟随，停在 302 拿 Location
-		},
+	nullDev := "/dev/null"
+	if runtime.GOOS == "windows" {
+		nullDev = "NUL"
 	}
-	resp, err := client.Get(latestURL)
-	if err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "curl", "-s", "--max-redirs", "0",
+		"-o", nullDev, "-w", "%{redirect_url}", latestURL).Output()
+	if err != nil || len(out) == 0 {
 		return ""
 	}
-	defer resp.Body.Close()
-	loc := resp.Header.Get("Location")
-	if loc == "" {
-		return ""
-	}
-	m := tagRe.FindStringSubmatch(loc)
+	m := tagRe.FindStringSubmatch(strings.TrimSpace(string(out)))
 	if m == nil {
 		return ""
 	}
