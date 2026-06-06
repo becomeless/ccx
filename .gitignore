@@ -13,6 +13,10 @@ _smoke/
 *.tmp
 *.bak
 
+# ───── Go 构建产物（根目录二进制；/ 锚定根目录，避免误伤 cmd/xx 源码目录）─────
+/xx
+/xx.exe
+
 # ───── Node / npm 构建产物（npm 重写）─────
 node_modules/
 dist/
