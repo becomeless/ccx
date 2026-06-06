@@ -1,8 +1,27 @@
-# ccx
+<h1 align="center">ccx</h1>
+
+<p align="center">
+  <strong>No config files · Process isolation · Parallel terminals · Zero deps</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/becomeless/cc-x/releases/latest"><img src="https://img.shields.io/github/v/release/becomeless/cc-x?style=flat-square&color=blue" alt="version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/becomeless/cc-x?style=flat-square" alt="license"></a>
+  <a href="https://github.com/becomeless/cc-x/releases/latest"><img src="https://img.shields.io/github/downloads/becomeless/cc-x/total?style=flat-square&color=success" alt="downloads"></a>
+  <a href="https://github.com/becomeless/cc-x/actions"><img src="https://img.shields.io/github/actions/workflow/status/becomeless/cc-x/release.yml?style=flat-square&label=build" alt="build"></a>
+</p>
+
+<p align="center">
+  <a href="README.md">🇨🇳 中文</a> · <a href="README.en.md">🇺🇸 English</a>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> · <a href="#60-second-quick-start">Quick Start</a> · <a href="#two-modes-the-key-concept">Concepts</a> · <a href="#configuration">Config</a> · <a href="#faq">FAQ</a>
+</p>
+
+---
 
 > `xx` — one command to switch Claude Code between APIs. **Zero config risk.**
->
-> [简体中文](README.md) | English
 
 Switching Claude Code between the official account and third-party APIs means juggling
 environment variables — or trusting a tool that rewrites your Claude config. ccx takes a
@@ -32,6 +51,8 @@ reads or writes any Claude Code config file. Your MCP, plugins, hooks — it won
 
 > Install [Claude Code](https://claude.ai/code) first (`claude` on PATH). **Open a new terminal** after installing.
 
+### Step 1 · Install ccx
+
 **Windows (native, recommended)**
 
 ```powershell
@@ -53,6 +74,19 @@ it prints a hint (the Unix installer deliberately doesn't edit your shell config
 
 ```bash
 npm install -g @cc-x/cc-x
+```
+
+### Step 2 · Configure your API key
+
+```bash
+xx   # First run seeds 4 presets — pick one, edit, paste your key
+```
+
+### Step 3 · Start using it
+
+```bash
+xx DeepSeek -s     # Use this session, launch Claude now
+xx DeepSeek        # Set as default for new terminals
 ```
 
 ---
@@ -88,12 +122,25 @@ Which API Claude uses is decided by **environment variables**. ccx offers two sc
 | Running sessions | Unaffected | Unaffected (env freezes at process start) |
 | Best for | Parallel terminals on different APIs | Set your daily-driver API once |
 
+> 💡 **Analogy**: "Use this session" is a quick oil change — just for this trip. "Set default" is
+> refilling the tank — every new drive uses it from now on.
+
 **Parallel example**: open 4 terminals and run `xx Official -s`, `xx DeepSeek -s`, `xx 智谱GLM -s`,
 `xx 小米MiMo -s` — four Claudes running at once, each on its own API, zero interference.
 
 **Why not a global config file?** `settings.json` is shared globally; editing it hits running
 sessions (classic symptom: another terminal suddenly says `cannot be parsed as a URL`).
 Environment variables are naturally process-isolated.
+
+---
+
+## When ccx is NOT the right tool
+
+- You need to manage MCP, hooks, plugins, or multiple CLIs → use [cc-switch](https://github.com/farion1231/cc-switch)
+- You only use the official API, never switch → you don't need ccx
+- You want automatic config migration/backup → that's outside ccx's scope
+
+ccx cares more about boundaries than features. It does one thing: **switch APIs**.
 
 ---
 
