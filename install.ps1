@@ -187,17 +187,34 @@ function Install-Ccx {
     }
 
     New-Item -ItemType Directory -Force -Path $installFull | Out-Null
-    $dest = Join-Path $installFull "xx.exe"
-    $old  = Join-Path $installFull "xx.exe.old"
-    # Remove stale backup from a previous upgrade
-    if (Test-Path $old) { Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue }
+    $dest   = Join-Path $installFull "xx.exe"
+    $staged = Join-Path $installFull "xx.exe.new"
+    $backup = Join-Path $installFull ("xx.exe." + [guid]::NewGuid().Guid + ".old")
+
+    # 1. Stage the new binary (write is always safe; the running binary is at a different path)
+    Copy-Item -LiteralPath $exe.FullName -Destination $staged -Force
+
+    # 2. Clean up any unlocked backups left by previous upgrades (skip locked ones silently)
+    Get-ChildItem -LiteralPath $installFull -Filter "xx.exe.*.old" -ErrorAction SilentlyContinue |
+      ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+
+    # 3. Promote staged → dest.  Fast path: direct overwrite (works when xx is not running).
+    #    Locked path: rename the running binary to a unique .old (Windows allows renaming open
+    #    files), then rename staged into place.  On any failure, roll back and clean up.
     try {
-      Copy-Item -LiteralPath $exe.FullName -Destination $dest -Force
+      Move-Item -LiteralPath $staged -Destination $dest -Force
     } catch {
-      # xx.exe may be locked by a running session; rename it out of the way first
-      # (Windows allows renaming an open file) then copy the new binary into place
-      if (Test-Path $dest) { Move-Item -LiteralPath $dest -Destination $old -Force }
-      Copy-Item -LiteralPath $exe.FullName -Destination $dest -Force
+      try {
+        if (Test-Path $dest) { Move-Item -LiteralPath $dest -Destination $backup }
+        Move-Item -LiteralPath $staged -Destination $dest
+      } catch {
+        # Roll back: restore the old binary if the slot is now empty
+        if ((Test-Path $backup) -and -not (Test-Path $dest)) {
+          Move-Item -LiteralPath $backup -Destination $dest -ErrorAction SilentlyContinue
+        }
+        Remove-Item -LiteralPath $staged -Force -ErrorAction SilentlyContinue
+        throw
+      }
     }
     foreach ($name in @("presets.json", "LICENSE", "README.md", "README.en.md")) {
       $file = Get-ChildItem -LiteralPath $temp -Recurse -Filter $name | Select-Object -First 1
@@ -230,12 +247,15 @@ function Install-Ccx {
 
 function Uninstall-Ccx {
   $installFull = [IO.Path]::GetFullPath($InstallDir)
-  foreach ($name in @("xx.exe", "xx.exe.old", "presets.json", "LICENSE", "README.md", "README.en.md")) {
+  foreach ($name in @("xx.exe", "xx.exe.new", "presets.json", "LICENSE", "README.md", "README.en.md")) {
     $file = Join-Path $installFull $name
     if (Test-Path -LiteralPath $file) {
       Remove-Item -LiteralPath $file -Force
     }
   }
+  # Remove any upgrade backup files (xx.exe.<guid>.old)
+  Get-ChildItem -LiteralPath $installFull -Filter "xx.exe.*.old" -ErrorAction SilentlyContinue |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
   Remove-UserPath $installFull | Out-Null
   $remaining = @()
   if (Test-Path -LiteralPath $installFull) {
