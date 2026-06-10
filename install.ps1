@@ -187,7 +187,18 @@ function Install-Ccx {
     }
 
     New-Item -ItemType Directory -Force -Path $installFull | Out-Null
-    Copy-Item -LiteralPath $exe.FullName -Destination (Join-Path $installFull "xx.exe") -Force
+    $dest = Join-Path $installFull "xx.exe"
+    $old  = Join-Path $installFull "xx.exe.old"
+    # Remove stale backup from a previous upgrade
+    if (Test-Path $old) { Remove-Item -LiteralPath $old -Force -ErrorAction SilentlyContinue }
+    try {
+      Copy-Item -LiteralPath $exe.FullName -Destination $dest -Force
+    } catch {
+      # xx.exe may be locked by a running session; rename it out of the way first
+      # (Windows allows renaming an open file) then copy the new binary into place
+      if (Test-Path $dest) { Move-Item -LiteralPath $dest -Destination $old -Force }
+      Copy-Item -LiteralPath $exe.FullName -Destination $dest -Force
+    }
     foreach ($name in @("presets.json", "LICENSE", "README.md", "README.en.md")) {
       $file = Get-ChildItem -LiteralPath $temp -Recurse -Filter $name | Select-Object -First 1
       if ($file) {
@@ -219,7 +230,7 @@ function Install-Ccx {
 
 function Uninstall-Ccx {
   $installFull = [IO.Path]::GetFullPath($InstallDir)
-  foreach ($name in @("xx.exe", "presets.json", "LICENSE", "README.md", "README.en.md")) {
+  foreach ($name in @("xx.exe", "xx.exe.old", "presets.json", "LICENSE", "README.md", "README.en.md")) {
     $file = Join-Path $installFull $name
     if (Test-Path -LiteralPath $file) {
       Remove-Item -LiteralPath $file -Force
