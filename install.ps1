@@ -257,8 +257,9 @@ function Uninstall-Ccx {
   $lockedOld = @()
   Get-ChildItem -LiteralPath $installFull -Filter "xx.exe.*.old" -ErrorAction SilentlyContinue |
     ForEach-Object {
-      try   { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop }
-      catch { $lockedOld += $_.FullName }
+      $oldPath = $_.FullName
+      try   { Remove-Item -LiteralPath $oldPath -Force -ErrorAction Stop }
+      catch { $lockedOld += $oldPath }
     }
   Remove-UserPath $installFull | Out-Null
   $remaining = @()
