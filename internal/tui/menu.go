@@ -59,11 +59,12 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			items := append([]string{}, labels...)
 			return append(items, "", i18n.T("menu.newProfile"), i18n.T("menu.language"), updLabel, "", i18n.T("menu.exit"))
 		}
+		moveWarn := ""
 		onMove := func(from, to int) []string {
 			ps := store.Providers
 			if from >= 0 && from < len(ps) && to >= 0 && to < len(ps) {
 				ps[from], ps[to] = ps[to], ps[from]
-				_ = config.Save(paths, store)
+				moveWarn = saveWarning(paths, store)
 			}
 			return buildItems()
 		}
@@ -94,7 +95,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			NoNumber: true,
 		})
 		flash = ""
-		warnFlash = ""
+		warnFlash = moveWarn
 
 		if shortcut != 0 && sel >= 0 && sel < n {
 			p := &store.Providers[sel]
@@ -102,10 +103,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			case 'e':
 				old := p.Name
 				if EditForm(t, p, store, catalog, false) {
-					if store.Current == old {
-						store.Current = p.Name
-					}
-					_ = config.Save(paths, store)
+					warnFlash, flash = saveEditedProfile(paths, store, p, old, scope)
 				}
 			case 's':
 				tuiLaunchSession(*p)
@@ -122,7 +120,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			prov := config.Provider{Env: map[string]string{}}
 			if EditForm(t, &prov, store, catalog, false) {
 				store.Providers = append(store.Providers, prov)
-				_ = config.Save(paths, store)
+				warnFlash = saveWarning(paths, store)
 				sel = len(store.Providers) - 1
 			}
 		case sel == n+2: // 语言切换：即时切并写回 store.lang
@@ -132,27 +130,26 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 			}
 			i18n.SetLang(next)
 			store.Lang = next
-			_ = config.Save(paths, store)
+			warnFlash = saveWarning(paths, store)
 		case sel == n+3: // 更新检查开关：关闭 <-> 提醒
 			if store.Update == update.ModeNotify {
 				store.Update = update.ModeOff
 			} else {
 				store.Update = update.ModeNotify
 			}
-			_ = config.Save(paths, store)
+			warnFlash = saveWarning(paths, store)
 		case sel < n:
 			p := &store.Providers[sel]
 			if !config.IsOfficial(*p) && config.GetProviderState(*p).Key == config.KeyNone {
 				// #9：无密钥的第三方配置，Enter 直达编辑并聚焦密钥行（铺平首次成功路径）。
 				old := p.Name
 				if EditForm(t, p, store, catalog, true) {
-					if store.Current == old {
-						store.Current = p.Name
-					}
-					_ = config.Save(paths, store)
+					warnFlash, flash = saveEditedProfile(paths, store, p, old, scope)
 				}
 			} else {
-				actionMenu(t, paths, store, p, scope, catalog)
+				if warn := actionMenu(t, paths, store, p, scope, catalog); warn != "" {
+					warnFlash = warn
+				}
 			}
 			if sel >= len(store.Providers) {
 				sel = max(0, len(store.Providers)-1) // 删除后夹取
@@ -162,7 +159,7 @@ func OpenMenu(t *Terminal, paths config.StorePaths, store *config.Store, scope d
 }
 
 // actionMenu 二级 · 动作菜单（循环停留；返回/删除已确认才回一级）。
-func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope, catalog []presets.Preset) {
+func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope, catalog []presets.Preset) string {
 	sel := 0
 	flash := ""
 	warnFlash := "" // 黄字警告（如缺密钥），走 Notice 与绿色 Status 区分
@@ -200,10 +197,7 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 		case 3:
 			old := p.Name
 			if EditForm(t, p, store, catalog, false) {
-				if store.Current == old {
-					store.Current = p.Name // 改名/供应商时同步默认指向
-				}
-				_ = config.Save(paths, store)
+				warnFlash, flash = saveEditedProfile(paths, store, p, old, scope)
 			}
 		case 4:
 			if config.IsOfficial(*p) {
@@ -212,11 +206,11 @@ func actionMenu(t *Terminal, paths config.StorePaths, store *config.Store, p *co
 			if confirmKey(t, i18n.T("action.deleteConfirm", i18n.ProviderDisplayName(*p))) {
 				removeProvider(store, p)
 				config.ReconcileCurrent(store)
-				_ = config.Save(paths, store)
-				return
+				warnFlash = saveWarning(paths, store)
+				return warnFlash
 			}
 		default:
-			return // 返回 / q / Esc
+			return "" // 返回 / q / Esc
 		}
 	}
 }
@@ -233,14 +227,48 @@ func defaultDisplayName(store *config.Store) string {
 	return store.Current
 }
 
-// applyDefault 设为默认，返回 (warn, toast)：warn 为黄字警告（缺密钥），toast 为绿色结果。
-// 分开返回让调用方各自上色，避免警告被染成「成功」绿。对应 npm 版 applyDefault。
-func applyDefault(paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope) (warn, toast string) {
-	name := i18n.ProviderDisplayName(*p)
-	if config.GetProviderState(*p).Key == config.KeyNone {
-		warn = i18n.T("default.noKey", name)
+func saveWarning(paths config.StorePaths, store *config.Store) string {
+	if err := config.Save(paths, store); err != nil {
+		return i18n.T("error.storeSave", err)
 	}
-	r := defaults.SetDefault(paths, store, *p, scope)
+	return ""
+}
+
+func saveEditedProfile(paths config.StorePaths, store *config.Store, p *config.Provider, oldName string, scope defaults.Scope) (warn, toast string) {
+	wasDefault := store.Current == oldName
+	if wasDefault {
+		store.Current = p.Name // 改名/供应商时同步默认指向
+	}
+	if warn = saveWarning(paths, store); warn != "" {
+		return warn, ""
+	}
+	if wasDefault {
+		return syncDefaultEnv(p, scope)
+	}
+	return "", ""
+}
+
+func defaultWarning(p *config.Provider) string {
+	if config.GetProviderState(*p).Key == config.KeyNone {
+		return i18n.T("default.noKey", i18n.ProviderDisplayName(*p))
+	}
+	return ""
+}
+
+func defaultResultMessage(warn, name string, r defaults.Result) (string, string) {
+	appendWarn := func(extra string) {
+		if extra == "" {
+			return
+		}
+		if warn == "" {
+			warn = extra
+			return
+		}
+		warn += "\n" + extra
+	}
+	if r.StoreErr != "" {
+		appendWarn(i18n.T("error.storeSave", r.StoreErr))
+	}
 	switch {
 	case r.DryRun:
 		return warn, i18n.T("default.done", name) + "  " + i18n.T("default.dryRun")
@@ -251,6 +279,18 @@ func applyDefault(paths config.StorePaths, store *config.Store, p *config.Provid
 	default:
 		return warn, i18n.T("default.done", name)
 	}
+}
+
+func syncDefaultEnv(p *config.Provider, scope defaults.Scope) (warn, toast string) {
+	name := i18n.ProviderDisplayName(*p)
+	return defaultResultMessage(defaultWarning(p), name, defaults.PersistEnv(*p, scope))
+}
+
+// applyDefault 设为默认，返回 (warn, toast)：warn 为黄字警告（缺密钥），toast 为绿色结果。
+// 分开返回让调用方各自上色，避免警告被染成「成功」绿。对应 npm 版 applyDefault。
+func applyDefault(paths config.StorePaths, store *config.Store, p *config.Provider, scope defaults.Scope) (warn, toast string) {
+	name := i18n.ProviderDisplayName(*p)
+	return defaultResultMessage(defaultWarning(p), name, defaults.SetDefault(paths, store, *p, scope))
 }
 
 // tuiLaunchSession 菜单内「本次启用」：提示 + banner + 套环境启动 claude，退出后回到动作菜单。

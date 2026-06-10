@@ -30,22 +30,31 @@ export function computeManagedVals(p: Provider): EnvVals {
   return vals;
 }
 
-export function setDefault(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): SetDefaultResult {
+export function persistDefaultEnv(p: Provider, scope: DefaultScope): SetDefaultResult {
   const vals = computeManagedVals(p);
   const dryRun = scope === 'process';
   const result: SetDefaultResult = { scope, dryRun };
-  let persisted = true;
   if (!dryRun) {
     if (process.platform === 'win32') {
       result.windows = persistWindows(vals);
-      persisted = result.windows.ok;
     } else {
       result.unix = persistUnix(vals);
-      persisted = !result.unix.unsupported; // fish 未写入 → 不算持久化成功
     }
   }
+  return result;
+}
+
+function envPersisted(result: SetDefaultResult): boolean {
+  if (result.dryRun) return true;
+  if (result.windows) return result.windows.ok;
+  if (result.unix) return !result.unix.unsupported; // fish 未写入 → 不算持久化成功
+  return false;
+}
+
+export function setDefault(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): SetDefaultResult {
+  const result = persistDefaultEnv(p, scope);
   // [P1] 仅当持久化成功（或 dry-run）才改默认指向并落盘，避免「报失败却已改默认」的不一致。
-  if (dryRun || persisted) {
+  if (envPersisted(result)) {
     store.current = p.name;
     saveStore(paths, store);
   }

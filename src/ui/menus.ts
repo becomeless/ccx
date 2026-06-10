@@ -9,7 +9,7 @@ import { launchSession } from '../actions.js';
 import { checkProfile } from '../check.js';
 import { getProviderEnvMap, getProviderState, isOfficial, reconcileCurrent, saveStore, type Provider, type Store, type StorePaths } from '../config/store.js';
 import type { Preset } from '../config/types.js';
-import { setDefault, type DefaultScope } from '../env/default.js';
+import { persistDefaultEnv, setDefault, type DefaultScope } from '../env/default.js';
 import { getLang, providerDisplayName, setLang, T } from '../i18n/index.js';
 import { currentTerminalLine, hostOf } from '../runtime-info.js';
 import { banner as updateBanner, maybeRefresh, MODE_NOTIFY, upgradeCommand } from '../update/update.js';
@@ -96,8 +96,7 @@ export async function openMenu(
       if (shortcut === 'e') {
         const old = target.name;
         if (await editForm(target, store, catalog)) {
-          if (store.current === old) store.current = target.name;
-          saveStore(paths, store);
+          ({ warn: warnFlash, toast: flash } = saveEditedProfile(paths, store, target, old, scope));
         }
       } else if (shortcut === 's') {
         launchSession(target);
@@ -134,8 +133,7 @@ export async function openMenu(
           // #9：无密钥的第三方配置，Enter 直达编辑并聚焦密钥行（铺平首次成功路径）。
           const old = target.name;
           if (await editForm(target, store, catalog, true)) {
-            if (store.current === old) store.current = target.name;
-            saveStore(paths, store);
+            ({ warn: warnFlash, toast: flash } = saveEditedProfile(paths, store, target, old, scope));
           }
         } else {
           await actionMenu(paths, store, target, scope, catalog);
@@ -185,8 +183,7 @@ async function actionMenu(
     } else if (sel === 3) {
       const old = p.name;
       if (await editForm(p, store, catalog)) {
-        if (store.current === old) store.current = p.name; // 改了名/供应商时同步默认指向
-        saveStore(paths, store);
+        ({ warn: warnFlash, toast: flash } = saveEditedProfile(paths, store, p, old, scope));
       }
     } else if (sel === 4) {
       if (isOfficial(p)) console.log(`  ${T('action.deleteOfficialWarn')}`);
@@ -207,18 +204,37 @@ function defaultDisplayName(store: Store): string {
   return providerDisplayName(store.providers.find((p) => p.name === store.current) ?? { name: store.current, env: {} });
 }
 
+function saveEditedProfile(paths: StorePaths, store: Store, p: Provider, oldName: string, scope: DefaultScope): { warn?: string; toast?: string } {
+  const wasDefault = store.current === oldName;
+  if (wasDefault) store.current = p.name; // 改了名/供应商时同步默认指向
+  saveStore(paths, store);
+  if (wasDefault) return syncDefaultEnv(p, scope);
+  return {};
+}
+
+function defaultWarning(p: Provider): string {
+  return getProviderState(p).key === 'noKey' ? T('default.noKey', providerDisplayName(p)) : '';
+}
+
+function defaultResultMessage(warn: string, name: string, r: ReturnType<typeof setDefault>): { warn: string; toast: string } {
+  if (r.dryRun) return { warn, toast: `${T('default.done', name)}  ${T('default.dryRun')}` };
+  if (r.windows && !r.windows.ok) return { warn, toast: T('default.failed', r.windows.error ?? '') };
+  if (r.unix?.unsupported) return { warn, toast: T('default.fishUnsupported') };
+  return { warn, toast: T('default.done', name) };
+}
+
+function syncDefaultEnv(p: Provider, scope: DefaultScope): { warn: string; toast: string } {
+  const name = providerDisplayName(p);
+  return defaultResultMessage(defaultWarning(p), name, persistDefaultEnv(p, scope));
+}
+
 /**
  * 设为默认，返回 { warn, toast }：warn 为黄字警告（缺密钥），toast 为绿色结果。
  * 分开返回让调用方各自上色，避免警告被染成「成功」绿。
  */
 function applyDefault(paths: StorePaths, store: Store, p: Provider, scope: DefaultScope): { warn: string; toast: string } {
   const name = providerDisplayName(p);
-  const warn = getProviderState(p).key === 'noKey' ? T('default.noKey', name) : '';
-  const r = setDefault(paths, store, p, scope);
-  if (r.dryRun) return { warn, toast: `${T('default.done', name)}  ${T('default.dryRun')}` };
-  if (r.windows && !r.windows.ok) return { warn, toast: T('default.failed', r.windows.error ?? '') };
-  if (r.unix?.unsupported) return { warn, toast: T('default.fishUnsupported') };
-  return { warn, toast: T('default.done', name) };
+  return defaultResultMessage(defaultWarning(p), name, setDefault(paths, store, p, scope));
 }
 
 // hostSuffix 返回行尾的灰字 host（如 ` · api.deepseek.com`）；无 base（官方/未填）返回空。

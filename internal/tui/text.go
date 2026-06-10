@@ -36,6 +36,7 @@ func ReadValue(t *Terminal, label, current string, secret bool) (changed bool, v
 	}
 
 	var buf []rune
+	firstRead := true
 	for {
 		n, err := t.In.Read(t.buf[:])
 		if n == 0 && err != nil {
@@ -44,6 +45,13 @@ func ReadValue(t *Terminal, label, current string, secret bool) (changed bool, v
 			return false, current
 		}
 		chunk := t.buf[:n]
+		if firstRead {
+			firstRead = false
+			chunk = dropStaleFirstLineFeed(chunk)
+			if len(chunk) == 0 {
+				continue
+			}
+		}
 		switch ParseKey(chunk).Type {
 		case KeyCtrlC:
 			t.Restore()
@@ -81,6 +89,15 @@ func ReadValue(t *Terminal, label, current string, secret bool) (changed bool, v
 			}
 		}
 	}
+}
+
+// dropStaleFirstLineFeed drains a lone LF that Windows terminals may leave
+// after SelectMenu consumes the CR half of an Enter key reported as CRLF.
+func dropStaleFirstLineFeed(chunk []byte) []byte {
+	if len(chunk) > 0 && chunk[0] == '\n' {
+		return chunk[1:]
+	}
+	return chunk
 }
 
 // cookedFallback：非 TTY / raw 失败时，cooked 读一行（语义同 ReadValue 的回车/-/替换）。
