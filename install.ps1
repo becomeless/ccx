@@ -253,9 +253,13 @@ function Uninstall-Ccx {
       Remove-Item -LiteralPath $file -Force
     }
   }
-  # Remove any upgrade backup files (xx.exe.<guid>.old)
+  # Remove any upgrade backup files (xx.exe.<guid>.old); skip locked ones
+  $lockedOld = @()
   Get-ChildItem -LiteralPath $installFull -Filter "xx.exe.*.old" -ErrorAction SilentlyContinue |
-    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    ForEach-Object {
+      try   { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop }
+      catch { $lockedOld += $_.FullName }
+    }
   Remove-UserPath $installFull | Out-Null
   $remaining = @()
   if (Test-Path -LiteralPath $installFull) {
@@ -265,6 +269,9 @@ function Uninstall-Ccx {
     Remove-Item -LiteralPath $installFull -Force
   }
   Write-Host "ccx native Windows install removed from $installFull"
+  if ($lockedOld.Count -gt 0) {
+    Write-Warning "$($lockedOld.Count) backup file(s) are still in use by running xx sessions and could not be removed. They will be cleaned up automatically on the next upgrade, or you can delete them manually after all xx processes exit: $installFull"
+  }
 }
 
 if ($Uninstall) {
